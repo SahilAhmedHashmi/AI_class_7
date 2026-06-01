@@ -1,2567 +1,1901 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  aiDomainPrompts,
-  aiExamples,
-  classificationCards,
-  clusteringItems,
-  dataScienceCards,
-  datasetTypes,
-  finalMissionTasks,
-  languagePairs,
-  predictionHistory,
-  sections,
-  structureExamples,
-  trainingCards,
-  workflowSteps,
-  SectionKey,
-} from './data/content';
-import { playSound } from './utils/sound';
-import { TopBar } from './components/TopBar';
-import { MissionMap } from './components/MissionMap';
-import { AchievementToast } from './components/AchievementToast';
-import { VictoryScreen } from './components/VictoryScreen';
-import { CityBackground } from './components/CityBackground';
-import { BossBattle } from './components/BossBattle';
-import { ChatGuide } from './components/ChatGuide';
-import { Notebook } from './components/Notebook';
+import React, { useState, useEffect, useRef } from 'react';
 
-// ─── Nova Gate & hook ───────────────────────────────────────────────
-function useNovaGate(initial = false) {
-  const [gateOpen, setGateOpen] = useState(initial);
-  return { gateOpen, setGateOpen };
+// ============================================================================
+// CORE DATA TYPES, THEMES, AND CONSTANTS
+// ============================================================================
+type SectionKey =
+  | 'landing'
+  | 'whatIsAI'
+  | 'classification'
+  | 'trainingData'
+  | 'computerVision'
+  | 'nlp'
+  | 'regression'
+  | 'clustering'
+  | 'dataTypes'
+  | 'aiWorkflow'
+  | 'finalMission'
+  | 'victory';
+
+interface SectionConfig {
+  key: SectionKey;
+  title: string;
+  badge: string;
+  xpReward: number;
 }
 
-type NovaGateProps = {
-  lines: string[];
-  onDone: () => void;
+const SECTIONS: SectionConfig[] = [
+  { key: 'whatIsAI', title: 'What is AI?', badge: '🧠 Brainwave Initiate', xpReward: 30 },
+  { key: 'classification', title: 'Classification Factory', badge: '🗂️ Sorting Strategist', xpReward: 30 },
+  { key: 'trainingData', title: 'Training the AI', badge: '🏋️ Master Trainer', xpReward: 30 },
+  { key: 'computerVision', title: 'Computer Vision Scanner', badge: '👁️ Cyber Sentinel', xpReward: 30 },
+  { key: 'nlp', title: 'Language Harbor', badge: '💬 Phrase Parser', xpReward: 30 },
+  { key: 'regression', title: 'Regression Observatory', badge: '📈 Trend Tracer', xpReward: 30 },
+  { key: 'clustering', title: 'Clustering Forest', badge: '🌌 Galaxy Grouper', xpReward: 30 },
+  { key: 'dataTypes', title: 'The Data Vault', badge: '🔐 Code Cracker', xpReward: 30 },
+  { key: 'aiWorkflow', title: 'The AI Pipeline Machine', badge: '⚙️ System Architect', xpReward: 30 },
+  { key: 'finalMission', title: 'Restore the AI Core', badge: '⚡ NeoCity Savior', xpReward: 30 },
+];
+
+const COLORS = {
+  bg: '#08101f',
+  cardBg: 'rgba(16, 28, 46, 0.95)',
+  accent: '#4b9bff',
+  success: '#5efc82',
+  error: '#ff6464',
+  textPrimary: '#f7fbff',
+  textSecondary: '#b6c7dc',
+  textMuted: '#8bb0ff',
 };
 
-function NovaGate({ lines, onDone }: NovaGateProps) {
-  const [lineIndex, setLineIndex] = useState(0);
-  const [displayed, setDisplayed] = useState('');
+// ============================================================================
+// INLINE GLOBAL STYLES & AUDIO SYNTHESIZER
+// ============================================================================
+function GlobalStyles() {
+  return (
+    <style dangerouslySetInnerHTML={{ __html: `
+      * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+      body { margin: 0; background-color: ${COLORS.bg}; color: ${COLORS.textPrimary}; overflow-x: hidden; }
+      button { cursor: pointer; transition: all 0.2s ease-in-out; border: none; }
+      button:active { transform: scale(0.95) !important; }
+      
+      @keyframes float { from { transform: translateY(0); } to { transform: translateY(-15px); } }
+      @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+      @keyframes slideUp { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+      @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+      @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
+      @keyframes celebrate { 0%{transform:scale(1)} 30%{transform:scale(1.06);box-shadow:0 0 0 6px rgba(94,252,130,0.35)} 60%{transform:scale(0.97)} 100%{transform:scale(1)} }
+      @keyframes pulseGlow { 0%,100%{box-shadow:0 0 0 0 rgba(75,155,255,0.4)} 50%{box-shadow:0 0 0 12px rgba(75,155,255,0)} }
+      @keyframes scanLine { 0%{top:0%;opacity:0.9} 100%{top:100%;opacity:0} }
+      @keyframes drawBorder { from{clip-path:inset(0 100% 100% 0)} to{clip-path:inset(0 0 0 0)} }
+      @keyframes confettiFall { to { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
+      @keyframes readyPulse { 0%,100%{box-shadow:0 0 0 0 rgba(94,252,130,0.3)} 50%{box-shadow:0 0 0 10px rgba(94,252,130,0)} }
+      @keyframes flowDot { from{stroke-dashoffset:100} to{stroke-dashoffset:0} }
+      @keyframes radialPulse { 0%{transform:scale(0);opacity:0.8} 100%{transform:scale(2.5);opacity:0} }
+      
+      .shake { animation: shake 0.4s ease-in-out; }
+      .celebrate { animation: celebrate 0.5s ease-in-out; }
+    ` }} />
+  );
+}
+
+function playSound(type: 'click' | 'drop' | 'success' | 'error' | 'power') {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const configs = {
+      click:   { freq: 880, type: 'sine',    duration: 0.08, vol: 0.15 },
+      drop:    { freq: 523, type: 'sine',    duration: 0.18, vol: 0.2  },
+      success: { freq: 659, type: 'triangle',duration: 0.35, vol: 0.25 },
+      error:   { freq: 220, type: 'sawtooth',duration: 0.2,  vol: 0.15 },
+      power:   { freq: 440, type: 'square',  duration: 0.12, vol: 0.1  },
+    };
+    const c = configs[type];
+    osc.type = c.type as OscillatorType;
+    osc.frequency.setValueAtTime(c.freq, ctx.currentTime);
+    gain.gain.setValueAtTime(c.vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + c.duration);
+    osc.start();
+    osc.stop(ctx.currentTime + c.duration);
+  } catch {}
+}
+
+// ============================================================================
+// STYLES & LAYOUT CONSTANTS
+// ============================================================================
+const cardStyle: React.CSSProperties = {
+  backgroundColor: COLORS.cardBg,
+  borderRadius: '24px',
+  border: '1px solid rgba(255,255,255,0.08)',
+  backdropFilter: 'blur(16px)',
+  padding: '24px',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+  animation: 'slideUp 0.5s ease-out forwards',
+};
+
+const primaryBtn: React.CSSProperties = {
+  borderRadius: '16px',
+  padding: '14px 28px',
+  background: 'linear-gradient(135deg, #4b9bff, #8bdcb8)',
+  color: '#03151e',
+  fontWeight: 700,
+  fontSize: '1rem',
+  minHeight: '48px',
+  minWidth: '120px',
+  boxShadow: '0 4px 12px rgba(75,155,255,0.3)',
+};
+
+const choiceBtn: React.CSSProperties = {
+  minHeight: '52px',
+  minWidth: '48px',
+  padding: '12px 20px',
+  borderRadius: '14px',
+  backgroundColor: 'rgba(255,255,255,0.05)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  color: COLORS.textPrimary,
+  fontWeight: 600,
+  fontSize: '0.95rem',
+};
+
+const novaGateStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '24px',
+  padding: '40px',
+  textAlign: 'center',
+  maxWidth: '650px',
+  margin: '40px auto',
+  backgroundColor: 'rgba(11, 24, 44, 0.85)',
+  borderRadius: '24px',
+  border: '1px solid rgba(75, 155, 255, 0.2)',
+};
+
+const novaBubbleStyle: React.CSSProperties = {
+  backgroundColor: 'rgba(20, 38, 66, 0.9)',
+  borderLeft: `4px solid ${COLORS.accent}`,
+  padding: '20px',
+  borderRadius: '12px',
+  textAlign: 'left',
+  width: '100%',
+};
+
+const novaNameStyle: React.CSSProperties = {
+  display: 'block',
+  fontWeight: 'bold',
+  color: COLORS.accent,
+  marginBottom: '8px',
+  fontSize: '0.9rem',
+  textTransform: 'uppercase',
+  letterSpacing: '1px',
+};
+
+// ============================================================================
+// SHARED UI COMPONENTS
+// ============================================================================
+function NovaGate({ lines, onDone }: { lines: string[]; onDone: () => void }) {
+  const [idx, setIdx] = useState(0);
+  const [text, setText] = useState('');
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (lineIndex >= lines.length) {
+    if (idx >= lines.length) {
       setDone(true);
       return;
     }
-    const line = lines[lineIndex];
     let i = 0;
-    setDisplayed('');
-    const t = window.setInterval(() => {
-      setDisplayed((p) => p + line[i]);
-      i++;
-      if (i >= line.length) {
+    setText('');
+    const t = setInterval(() => {
+      if (i < lines[idx].length) {
+        setText(p => p + lines[idx][i]);
+        i++;
+      } else {
         clearInterval(t);
-        setTimeout(() => setLineIndex((prev) => prev + 1), 700);
+        setTimeout(() => setIdx(p => p + 1), 1000);
       }
-    }, 28);
+    }, 20);
     return () => clearInterval(t);
-  }, [lineIndex, lines]);
+  }, [idx, lines]);
 
   return (
-    <div className="nova-gate card">
-      <div className="nova-avatar">🚀</div>
-      <div className="nova-bubble">
-        <span className="nova-name">Captain Nova</span>
-        <p className="nova-text">{displayed}<span className="cursor">▌</span></p>
+    <div style={novaGateStyle}>
+      <div style={{ fontSize: '3.5rem', animation: 'float 2.5s ease-in-out infinite alternate' }}>🚀</div>
+      <div style={novaBubbleStyle}>
+        <span style={novaNameStyle}>Captain Nova</span>
+        <p style={{ margin: 0, color: '#d8eeff', fontSize: '1.05rem', lineHeight: 1.7 }}>
+          {text}<span style={{ animation: 'blink 0.9s step-end infinite', color: '#4bffa5' }}>▋</span>
+        </p>
       </div>
       {done && (
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end' }}>
-          <button className="button-primary nova-go" onClick={onDone}>Let's Go →</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InsightCard({ hours, sleep, predicted, locked }: { hours: number; sleep: number; predicted: number; locked: boolean }) {
-  const [open, setOpen] = useState(false);
-  const baselineHours = 3;
-  const baselineSleep = 4;
-  const baseline = 30 + baselineHours * 4 + baselineSleep * 2;
-  const diff = predicted - baseline;
-
-  const summary = `${predicted} marks — ${diff >= 0 ? `+${diff}` : diff} vs baseline`;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontWeight: 600 }}>{summary}</div>
-      <div className="small-note">Model note: each extra study hour ≈ +4 marks; each extra sleep day ≈ +2 marks.</div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-        <button className="small-button" onClick={() => { setOpen((o) => !o); playSound('click'); }}>{open ? 'Hide' : 'Explain'}</button>
-        <button className="small-button" onClick={() => { navigator.clipboard?.writeText(`${predicted} marks`); playSound('power'); }}>Copy</button>
-      </div>
-      {open && (
-        <div style={{ marginTop: 8, background: 'rgba(10,20,40,0.35)', padding: 10, borderRadius: 8 }}>
-          <div className="small-note">Explanation:</div>
-          <div style={{ fontSize: '0.9rem', marginTop: 6 }}>
-            The simple linear model estimates marks by adding a base score and linear contributions from `hours` and `sleep`. Increasing study hours by 1 adds about 4 marks, while one extra good sleep day adds about 2 marks.
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-type DomainState = Record<string, string[]>;
-
-type PlacementMap = Record<string, string>;
-
-const order = sections.map((section) => section.key);
-
-function useCountUp(target: number, duration = 500) {
-  const [display, setDisplay] = useState(target);
-  const previous = useRef(target);
-
-  useEffect(() => {
-    const start = previous.current;
-    const change = target - start;
-    if (change === 0) {
-      setDisplay(target);
-      return;
-    }
-    const startTime = performance.now();
-    let frame = 0;
-
-    const animate = (time: number) => {
-      const progress = Math.min((time - startTime) / duration, 1);
-      setDisplay(Math.round(start + change * progress));
-      if (progress < 1) {
-        frame = requestAnimationFrame(animate);
-      } else {
-        previous.current = target;
-      }
-    };
-
-    frame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frame);
-  }, [target, duration]);
-
-  return display;
-}
-
-function App() {
-  const [currentSection, setCurrentSection] = useState<SectionKey>('landing');
-  const [completed, setCompleted] = useState<SectionKey[]>(['landing']);
-  const [xp, setXp] = useState(150);
-  const [achievement, setAchievement] = useState('Explorer Initiate');
-  const [recentBadge, setRecentBadge] = useState<string | null>(null);
-  const [showBadge, setShowBadge] = useState(false);
-  const [finished, setFinished] = useState(false);
-  const [xpBurst, setXpBurst] = useState(false);
-  const [xpGain, setXpGain] = useState(0);
-  const animatedXp = useCountUp(xp);
-
-  const currentIndex = order.indexOf(currentSection);
-  const progress = ((currentIndex + 1) / order.length) * 100;
-
-  const section = useMemo(
-    () => sections.find((item) => item.key === currentSection) ?? sections[0],
-    [currentSection]
-  );
-
-  useEffect(() => {
-    if (!showBadge) return;
-    const timeout = window.setTimeout(() => setShowBadge(false), 2400);
-    return () => window.clearTimeout(timeout);
-  }, [showBadge]);
-
-  const completeSection = (section: SectionKey, bonus = 30) => {
-    if (!completed.includes(section)) {
-      const badge = sections.find((item) => item.key === section)?.badge ?? achievement;
-      setCompleted((prev) => [...prev, section]);
-      setXp((prev) => prev + bonus);
-      setXpGain(bonus);
-      setXpBurst(true);
-      setTimeout(() => setXpBurst(false), 900);
-      setAchievement(badge);
-      setRecentBadge(badge);
-      setShowBadge(true);
-    }
-    if (section === 'finalMission') {
-      setFinished(true);
-      return;
-    }
-    const nextIndex = order.indexOf(section) + 1;
-    const next = nextIndex < order.length ? order[nextIndex] : section;
-    if (next !== section) setCurrentSection(next);
-  };
-
-  return (
-    <div className="app-shell">
-      <CityBackground />
-      <aside className="card glow-card sidebar-panel">
-        <TopBar
-          xp={animatedXp}
-          level={Math.floor(xp / 100) + 1}
-          progress={progress}
-          completed={completed.length}
-          total={order.length}
-          title={section.title}
-          subtitle={section.subtitle}
-        />
-        <MissionMap
-          sections={sections}
-          completed={completed}
-          currentSection={currentSection}
-          onSelect={(key) => { if (!finished) setCurrentSection(key); }}
-        />
-        <div className="card-grid" style={{ marginTop: 24 }}>
-          <div className="card">
-            <p className="metric-label">Achievement</p>
-            <h3 className="h2">{achievement}</h3>
-          </div>
-          <div className="card">
-            <p className="metric-label">Progress</p>
-            <div className="progress-pill" style={{ width: '100%', justifyContent: 'space-between' }}>
-              <span>{Math.round(progress)}%</span>
-              <span>{completed.length}/{order.length}</span>
-            </div>
-          </div>
-        </div>
-        <Notebook completed={completed} sections={sections} />
-      </aside>
-
-      <main className="main-content">
-        {showBadge && recentBadge && <AchievementToast badge={recentBadge} />}
-        {xpBurst && <div className="xp-float">+{xpGain} XP</div>}
-        {finished ? (
-          <VictoryScreen xp={xp} onRestart={() => {
-            setCurrentSection('landing');
-            setCompleted(['landing']);
-            setFinished(false);
-            setXp(150);
-            setAchievement('Explorer Initiate');
-          }} />
-        ) : currentSection === 'landing' ? (
-          <LandingScreen onStart={() => setCurrentSection('whatIsAI')} xp={xp} />
-        ) : (
-          <SectionScreen
-            key={currentSection}
-            section={section.key}
-            onComplete={completeSection}
-          />
-        )}
-      </main>
-      <div className="mobile-status-bar">
-        <div>
-          <p>XP</p>
-          <strong>{animatedXp}</strong>
-        </div>
-        <div>
-          <p>Mission</p>
-          <strong>{section.subtitle}</strong>
-        </div>
-        <div>
-          <p>Progress</p>
-          <strong>{Math.round(progress)}%</strong>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LandingScreen({ onStart, xp }: { onStart: () => void; xp: number }) {
-  const lines = [
-    'Junior Explorer, this is Captain Nova.',
-    'The city is dimming and only your AI instincts can reboot our systems.',
-    'Follow me through each district and restore NeoCity’s intelligence.'
-  ];
-  const [currentLine, setCurrentLine] = useState(0);
-  const [displayText, setDisplayText] = useState('');
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    if (currentLine >= lines.length) {
-      setReady(true);
-      return;
-    }
-    const line = lines[currentLine];
-    let index = 0;
-    const interval = window.setInterval(() => {
-      setDisplayText((prev) => prev + line[index]);
-      index += 1;
-      if (index >= line.length) {
-        window.clearInterval(interval);
-        setTimeout(() => {
-          if (currentLine < lines.length - 1) {
-            setDisplayText('');
-            setCurrentLine(currentLine + 1);
-          } else {
-            setReady(true);
-          }
-        }, 600);
-      }
-    }, 30);
-
-    return () => window.clearInterval(interval);
-  }, [currentLine]);
-
-  return (
-    <section className="card hero-panel">
-      <div className="section-header">
-        <p className="metric-label">Incoming transmission</p>
-        <h1 className="h1">NeoCity’s central AI has faltered.</h1>
-        <p className="p-muted">{displayText || 'Captain Nova is connecting...'}</p>
-      </div>
-      <ChatGuide section="landing" />
-      <div className="floating-badge">
-        <p className="small-note">Current XP</p>
-        <strong>{xp}</strong>
-      </div>
-      <div style={{ display: 'grid', gap: 18, marginTop: 24 }}>
-        <div className="card" style={{ background: 'rgba(255,255,255,0.05)' }}>
-          <h3 className="h2">NeoCity Mission</h3>
-          <p className="small-note">Each district holds a challenge. Complete them to reconnect the AI core.</p>
-        </div>
-        <button className="button-primary" onClick={onStart} disabled={!ready}>
-          {ready ? 'Start the Adventure' : 'Waiting for Nova...'}
+        <button style={primaryBtn} onClick={() => { playSound('click'); onDone(); }}>
+          Let's Go →
         </button>
-      </div>
-      <div className="hero-decor"></div>
-    </section>
-  );
-}
-
-function ReviewPanel({ description, realWorld, onAdvance, ready }: { description: string; realWorld: string; onAdvance: () => void; ready: boolean }) {
-  if (!ready) return null;
-  return (
-    <div className="card concept-review">
-      <p className="metric-label">Concept unlocked</p>
-      <h3 className="h2">What you just learned</h3>
-      <p className="p-muted">{description}</p>
-      <p className="small-note">Real-world connection: {realWorld}</p>
-      <button className="button-primary" onClick={onAdvance}>Proceed to next district</button>
+      )}
     </div>
   );
 }
 
-function SectionScreen({ section, onComplete }: { section: SectionKey; onComplete: (key: SectionKey) => void }) {
-  return (
-    <div className="section-wrapper">
-      {renderSection(section, onComplete)}
-    </div>
-  );
+// Custom Counter Hook Mock to achieve CountUp smoothly
+function useCountUp(target: number) {
+  const [count, setCount] = useState(target);
+  useEffect(() => {
+    if (count === target) return;
+    const diff = target - count;
+    const step = diff > 0 ? Math.ceil(diff / 5) : Math.floor(diff / 5);
+    const timer = setTimeout(() => setCount(p => p + step), 40);
+    return () => clearTimeout(timer);
+  }, [target, count]);
+  return count;
 }
 
-function renderSection(section: SectionKey, onComplete: (key: SectionKey) => void) {
-  switch (section) {
-    case 'whatIsAI':
-      return <WhatIsAISection onComplete={() => onComplete('whatIsAI')} />;
-    case 'aiDomains':
-      return <AiDomainsSection onComplete={() => onComplete('aiDomains')} />;
-    case 'dataScience':
-      return <DataScienceSection onComplete={() => onComplete('dataScience')} />;
-    case 'computerVision':
-      return <ComputerVisionSection onComplete={() => onComplete('computerVision')} />;
-    case 'languageHarbor':
-      return <LanguageHarborSection onComplete={() => onComplete('languageHarbor')} />;
-    case 'predictionLab':
-      return <PredictionLabSection onComplete={() => onComplete('predictionLab')} />;
-    case 'classificationFactory':
-      return <ClassificationFactorySection onComplete={() => onComplete('classificationFactory')} />;
-    case 'regressionObservatory':
-      return <RegressionObservatorySection onComplete={() => onComplete('regressionObservatory')} />;
-    case 'clusteringForest':
-      return <ClusteringForestSection onComplete={() => onComplete('clusteringForest')} />;
-    case 'datasetVault':
-      return <DatasetVaultSection onComplete={() => onComplete('datasetVault')} />;
-    case 'dataTypeSort':
-      return <DataTypeSortSection onComplete={() => onComplete('dataTypeSort')} />;
-    case 'trainingArena':
-      return <TrainingArenaSection onComplete={() => onComplete('trainingArena')} />;
-    case 'workflowMachine':
-      return <WorkflowMachineSection onComplete={() => onComplete('workflowMachine')} />;
-    case 'finalMission':
-      return <FinalMissionSection onComplete={() => onComplete('finalMission')} />;
-    default:
-      return <div>Section unavailable.</div>;
-  }
-}
+// ============================================================================
+// SECTION 1: WHAT IS AI
+// ============================================================================
+interface S1Item { id: string; emoji: string; label: string; isAI: boolean; hint: string; }
+const S1_ITEMS: S1Item[] = [
+  { id: '1', emoji: '🎙️', label: 'Siri', isAI: true, hint: 'Siri continuously translates and reacts to complex human speech patterns!' },
+  { id: '2', emoji: '♟️', label: 'Chess Robot', isAI: true, hint: 'Chess engines analyze moves ahead based on vast strategical search models.' },
+  { id: '3', emoji: '🔢', label: 'Calculator', isAI: false, hint: 'Calculators use hardwired, fixed mathematical logic circuits. They cannot learn.' },
+  { id: '4', emoji: '📧', label: 'Spam Filter', isAI: true, hint: 'Modern spam systems actively adjust filters as novel scam phrasing appears.' },
+  { id: '5', emoji: '🌡️', label: 'Thermostat', isAI: false, hint: 'A classic mechanical thermostat simply shuts off when a threshold target is met.' },
+  { id: '6', emoji: '🌐', label: 'Translator', isAI: true, hint: 'Language translation handles contextual syntax fluidly from large text corpora.' },
+  { id: '7', emoji: '🚗', label: 'Self-Driving', isAI: true, hint: 'Autonomous vehicles process live computer vision frames dynamically to navigate safely.' },
+  { id: '8', emoji: '⏰', label: 'Alarm Clock', isAI: false, hint: 'An alarm clock checks the target time against absolute system clock variables.' },
+  { id: '9', emoji: '🎵', label: 'Music Recs', isAI: true, hint: 'Streaming engines learn your personal sonic habits to make custom predictions.' },
+];
 
 function WhatIsAISection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'whatIsAI')!;
   const [gateOpen, setGateOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [items, setItems] = useState<S1Item[]>(S1_ITEMS);
+  const [assigned, setAssigned] = useState<Record<string, 'AI' | 'NOT_AI'>>({});
+  const [confidence, setConfidence] = useState(20);
+  const [novaHint, setNovaHint] = useState<string>('Select an item from the grid, then map it into a target pipeline core below.');
+  const [shakeId, setShakeId] = useState<string | null>(null);
 
-  const devices = [
-    { id: 'siri', icon: '🎙️', label: 'Siri', group: 'AI', hint: 'Siri learns your voice and adapts.' },
-    { id: 'chess', icon: '♟️', label: 'Chess Robot', group: 'AI', hint: 'A chess robot can learn strategies from games.' },
-    { id: 'calc', icon: '🔢', label: 'Calculator', group: 'Not AI', hint: 'A calculator always follows fixed rules.' },
-    { id: 'spam', icon: '📧', label: 'Spam Filter', group: 'AI', hint: 'Spam filters learn from examples of spam.' },
-    { id: 'therm', icon: '🌡️', label: 'Thermostat', group: 'Not AI', hint: 'A simple thermostat may follow set rules.' },
-    { id: 'trans', icon: '🌐', label: 'Translator App', group: 'AI', hint: 'Translators improve with more language data.' },
-  ];
-
-  const [selected, setSelected] = useState<string | null>(null);
-  const [placed, setPlaced] = useState<Record<string, string>>({});
-  const [statusMsg, setStatusMsg] = useState('Tap a device, then tap a zone.');
-  const [itemState, setItemState] = useState<Record<string, 'idle' | 'correct' | 'error'>>({});
-  const [lastHint, setLastHint] = useState<string | null>(null);
-  const [reviewOpen, setReviewOpen] = useState(false);
-
-  const total = devices.length;
-  const correctCount = devices.filter((d) => placed[d.label] === d.group).length;
-  const completed = correctCount === total;
-
-  const handleSelect = (label: string) => {
-    if (placed[label]) return;
-    setSelected(label);
-    setStatusMsg('Now tap a zone to place the device.');
-    playSound('click');
-  };
-
-  const handlePlace = (zone: string) => {
-    if (!selected) return;
-    const device = devices.find((d) => d.label === selected)!;
-    setSelected(null);
-    if (device.group === zone) {
-      setPlaced((p) => ({ ...p, [device.label]: zone }));
-      setItemState((s) => ({ ...s, [device.label]: 'correct' }));
-      setLastHint(device.hint);
-      playSound('drop');
-      setTimeout(() => setItemState((s) => ({ ...s, [device.label]: 'idle' })), 700);
-      setTimeout(() => setLastHint(null), 1600);
-      if (correctCount + 1 === total) {
-        setTimeout(() => {
-          setStatusMsg('SCAN COMPLETE ⚡');
-          playSound('success');
-        }, 400);
-      }
-    } else {
-      setItemState((s) => ({ ...s, [device.label]: 'error' }));
-      const hint = device.label === 'Calculator' ? 'Hmm! A calculator always does 2+2=4. It never learns. Try again!' : `Hmm! ${device.label} is not a learning system.`;
-      setStatusMsg(hint);
-      playSound('error');
-      setTimeout(() => {
-        setItemState((s) => ({ ...s, [device.label]: 'idle' }));
-        setStatusMsg('Tap a device, then tap a zone.');
-      }, 800);
-    }
-  };
-
-  const handleSubmit = () => {
-    if (completed) {
-      if (reviewOpen) {
-        onComplete();
-        return;
-      }
-      setReviewOpen(true);
-    } else {
-      setStatusMsg('Some devices are still unsorted. Keep going!');
-      playSound('error');
-    }
-  };
-
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        'Welcome to NeoCity! Something strange is happening — machines are everywhere but only SOME of them are truly intelligent.',
-        'Your first mission: can you figure out which ones have a BRAIN... and which ones are just following boring old instructions?',
-        'Tap each device below and sort it. AI learns from data — non-AI just follows rules.',
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
-  return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Devices</p>
-        <div className="grid-2">
-          {devices.map((d) => {
-            const isSelected = selected === d.label;
-            const state = itemState[d.label] || 'idle';
-            const placedHere = placed[d.label];
-            return (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => handleSelect(d.label)}
-                className={`device-card small-button ${isSelected ? 'card-selected' : ''} ${state === 'correct' ? 'card-correct' : ''} ${state === 'error' ? 'card-error' : ''}`}
-                disabled={!!placedHere}
-              >
-                <div style={{ fontSize: '1.8rem' }}>{d.icon}</div>
-                <div style={{ marginTop: 6 }}>{d.label}</div>
-                <div style={{ marginTop: 6 }}>{placedHere ? '✅' : ''}</div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="card">
-        <p className="metric-label">Zones</p>
-        <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-          <div className={`drop-zone-big zone-ai ${selected ? 'zone-active' : ''}`} onClick={() => handlePlace('AI')}>
-            <h3 className="h2">🧠 Has a Brain (AI)</h3>
-            <p className="small-note">{Object.entries(placed).filter(([, v]) => v === 'AI').map(([k]) => k).join(', ') || 'Empty'}</p>
-          </div>
-
-          <div className={`drop-zone-big zone-notai ${selected ? 'zone-active' : ''}`} onClick={() => handlePlace('Not AI')}>
-            <h3 className="h2">⚙️ Just Rules (Not AI)</h3>
-            <p className="small-note">{Object.entries(placed).filter(([, v]) => v === 'Not AI').map(([k]) => k).join(', ') || 'Empty'}</p>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 12 }}>
-          <div className="small-note">{correctCount} / {total} correctly sorted</div>
-          <div className="core-meter" aria-hidden>
-            <div className="core-fill" style={{ width: `${(correctCount / total) * 100}%` }} />
-          </div>
-          {lastHint && <div className="nova-hint">{lastHint}</div>}
-        </div>
-      </div>
-
-      <div className="card">
-        <p className={`status-chip ${completed ? 'success-state' : ''}`}>{completed ? 'SCAN COMPLETE ⚡' : statusMsg}</p>
-        {completed ? (
-          <button className="button-primary button-ready" onClick={handleSubmit}>{reviewOpen ? 'Proceed to next district' : 'Complete Mission'}</button>
-        ) : (
-          <button className="button-primary" onClick={() => playSound('click')}>Complete Mission</button>
-        )}
-      </div>
-
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
+  if (!gateOpen) {
+    return (
+      <NovaGate
+        lines={[
+          "Welcome to the Outer Rim, Explorer! NeoCity's central classifier grid has crashed.",
+          "We need to sort active technologies. Remember: If it relies on fixed rules, it's conventional logic. If it learns dynamically from historical datasets, it's Artificial Intelligence!",
+        ]}
+        onDone={() => setGateOpen(true)}
       />
-    </div>
-  );
-}
+    );
+  }
 
-function AiDomainsSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'aiDomains')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const towers = [
-    { id: 'cv', name: 'Computer Vision', icon: '📷' },
-    { id: 'nlp', name: 'NLP', icon: '🗣️' },
-    { id: 'robot', name: 'Robotics', icon: '🤖' },
-    { id: 'ds', name: 'Data Science', icon: '📊' },
-    { id: 'ml', name: 'Machine Learning', icon: '🧠' },
-  ];
-
-  const scenarios = [
-    { text: 'A traffic camera detects a broken traffic light and reports it automatically.', correct: 'Computer Vision' },
-    { text: "A chatbot reads your complaint email and replies in your language.", correct: 'NLP' },
-    { text: 'A drone robot delivers medicine to a hospital roof.', correct: 'Robotics' },
-    { text: "The city's data team finds which district uses the most power each month.", correct: 'Data Science' },
-    { text: "NeoCity's music app learns which songs you skip and stops suggesting them.", correct: 'Machine Learning' },
-  ];
-
-  const [index, setIndex] = useState(0);
-  const [unlocked, setUnlocked] = useState<Record<string, boolean>>({});
-  const [shaking, setShaking] = useState<string | null>(null);
-  const [reviewOpen, setReviewOpen] = useState(false);
-
-  const current = scenarios[index];
-
-  const handleTowerTap = (name: string) => {
+  const handleLabel = (zone: 'AI' | 'NOT_AI') => {
+    if (!selectedId) return;
+    const current = items.find(i => i.id === selectedId);
     if (!current) return;
-    if (name === current.correct) {
-      setUnlocked((s) => ({ ...s, [name]: true }));
+
+    const correct = (zone === 'AI' && current.isAI) || (zone === 'NOT_AI' && !current.isAI);
+    if (correct) {
       playSound('drop');
-      setTimeout(() => {
-        const next = index + 1;
-        if (next >= scenarios.length) {
-          setReviewOpen(true);
-        } else {
-          setIndex(next);
-        }
-      }, 420);
+      setAssigned(prev => ({ ...prev, [selectedId]: zone }));
+      setConfidence(p => Math.min(100, p + 10));
+      setNovaHint(`Spot on! ${current.label} successfully classified.`);
+      setSelectedId(null);
     } else {
-      setShaking(name);
       playSound('error');
-      setTimeout(() => setShaking(null), 600);
+      setShakeId(selectedId);
+      setConfidence(p => Math.max(0, p - 5));
+      setNovaHint(`Not quite! ${current.hint}`);
+      setTimeout(() => setShakeId(null), 500);
     }
   };
 
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        'NeoCity has five AI Towers, each one specialising in a different superpower.',
-        "I'll describe a situation happening in the city RIGHT NOW. You tap the tower whose AI is handling it.",
-        'Get them all right and the towers light up. Ready?',
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
+  const remainingCount = items.filter(i => !assigned[i.id]).length;
+
   return (
-    <div className="task-grid">
-      <div className="card scenario-card">
-        <p className="metric-label">Scenario</p>
-        <h3 className="h2">{current?.text}</h3>
-        <div className="small-note">Tower {Math.min(index + 1, scenarios.length)} of {scenarios.length}</div>
+    <div style={cardStyle}>
+      <h2 style={{ color: COLORS.accent, margin: '0 0 8px 0' }}>District 1: Neural Classifier Core</h2>
+      <p style={{ color: COLORS.textSecondary, marginBottom: '24px' }}>Map items below into their appropriate operative profiles.</p>
+
+      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '24px', borderLeft: '4px solid #ffaa00' }}>
+        <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#ffaa00', display: 'block', marginBottom: '4px' }}>📡 SYSTEM LOG</span>
+        <p style={{ margin: 0, fontSize: '0.95rem', color: COLORS.textPrimary }}>{novaHint}</p>
       </div>
 
-      <div className="grid-5" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-        {towers.map((t) => {
-          const open = !!unlocked[t.name];
-          const isShaking = shaking === t.name;
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '32px' }}>
+        {items.map(item => {
+          const isAssigned = !!assigned[item.id];
+          const isSelected = selectedId === item.id;
+          if (isAssigned) return null;
+
           return (
             <button
-              key={t.id}
-              type="button"
-              className={`card door-card ${open ? 'door-open' : ''} ${isShaking ? 'shake' : ''}`}
-              onClick={() => handleTowerTap(t.name)}
+              key={item.id}
+              onClick={() => { playSound('click'); setSelectedId(item.id); }}
+              className={shakeId === item.id ? 'shake' : ''}
+              style={{
+                ...choiceBtn,
+                height: '80px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '4px',
+                borderColor: isSelected ? COLORS.accent : 'rgba(255,255,255,0.1)',
+                backgroundColor: isSelected ? 'rgba(75, 155, 255, 0.15)' : 'rgba(255,255,255,0.03)',
+                transform: isSelected ? 'scale(1.05)' : 'none',
+              }}
             >
-              <div style={{ fontSize: '1.8rem' }}>{t.icon}</div>
-              <div>
-                <div className="h2">{t.name}</div>
-                <div className="small-note">{open ? 'Online ✅' : 'Locked 🔒'}</div>
-              </div>
+              <span style={{ fontSize: '1.6rem' }}>{item.emoji}</span>
+              <span style={{ fontSize: '0.8rem' }}>{item.label}</span>
             </button>
           );
         })}
       </div>
 
-      <div className="card">
-        <p className="status-chip">Tap the tower that fits the scenario.</p>
-        <button className="button-primary" onClick={() => { if (reviewOpen) { onComplete(); } else { playSound('click'); } }}>{reviewOpen ? 'Proceed to next district' : 'Keep going'}</button>
-      </div>
-
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
-      />
-    </div>
-  );
-}
-
-function DataScienceSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'dataScience')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const [placed, setPlaced] = useState<PlacementMap>({});
-  const [status, setStatus] = useState('Group related data to reveal patterns.');
-  const [selected, setSelected] = useState<string | null>(null);
-  const [patternVisible, setPatternVisible] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-
-  const categories = ['marks', 'weather', 'sports'] as const;
-  const categoryEmojis = { marks: '📝', weather: '🌦️', sports: '🏅' };
-  const categoryHints = {
-    marks: 'School test scores and grades',
-    weather: 'Temperature, rainfall, wind data',
-    sports: 'Game stats and athletic records',
-  };
-
-  const handleDrop = (group: string) => {
-    if (!selected) return;
-    const item = dataScienceCards.find((card) => card.label === selected);
-    if (item) {
-      setPlaced((prev) => ({ ...prev, [selected]: group }));
-      playSound('drop');
-    }
-    setSelected(null);
-  };
-
-  const handleSelect = (label: string) => {
-    setSelected(label);
-    playSound('click');
-  };
-
-  const correct = dataScienceCards.every((card) => placed[card.label] === card.type);
-  const completed = Object.keys(placed).length === dataScienceCards.length && correct;
-
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        "The city's data centre is overflowing with messy, unsorted information!",
-        'Data scientists group similar data together so patterns can emerge.',
-        'Sort these data items into the right buckets — and watch what patterns appear.',
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
-  return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Data Cards</p>
-        <div className="grid-2">
-          {dataScienceCards.map((card) => (
-            <button
-              key={card.id}
-              className={`draggable-card${selected === card.label ? ' selected' : ''}`}
-              onClick={() => handleSelect(card.label)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-              }}
-            >
-              <div style={{ fontSize: '1.4rem' }}>{card.icon}</div>
-              <div style={{ textAlign: 'left', flex: 1 }}>
-                <div>{card.label}</div>
-                <div className="small-note">{placed[card.label] ?? 'Unsorted'}</div>
-              </div>
-              {placed[card.label] && <div>✓</div>}
-            </button>
-          ))}
-        </div>
-      </div>
-      
-      <div className="card">
-        <p className="metric-label">Categories</p>
-        <div className="grid-3">
-          {categories.map((group) => (
-            <div
-              key={group}
-              className={`drop-zone${selected ? ' active' : ''}`}
-              onClick={() => handleDrop(group)}
-              style={{
-                padding: 12,
-                borderRadius: 8,
-                border: '2px dashed rgba(75, 155, 255, 0.4)',
-                background: 'rgba(75, 155, 255, 0.05)',
-                cursor: selected ? 'pointer' : 'default',
-                transition: 'all 200ms ease',
-              }}
-            >
-              <div style={{ fontSize: '1.6rem', marginBottom: 4 }}>{categoryEmojis[group as keyof typeof categoryEmojis]}</div>
-              <h3 className="h2" style={{ margin: '4px 0', textTransform: 'capitalize' }}>{group}</h3>
-              <p className="small-note">{categoryHints[group as keyof typeof categoryHints]}</p>
-              <div className="small-note" style={{ marginTop: 8 }}>
-                {Object.entries(placed)
-                  .filter(([, value]) => value === group)
-                  .map(([label]) => label)
-                  .join(', ') || 'Empty'}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="card">
-        <p className="small-note">{Object.keys(placed).length} / {dataScienceCards.length} items sorted</p>
-        <div className="core-meter">
-          <div className="core-fill" style={{ width: `${(Object.keys(placed).length / dataScienceCards.length) * 100}%` }} />
-        </div>
-        <p className={`status-chip ${completed ? 'success-state' : ''}`}>{completed ? 'Patterns unlocked! Data science finds patterns.' : status}</p>
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '24px' }}>
         <button
-          className="button-primary"
-          onClick={() => {
-            if (completed) {
-              if (reviewOpen) {
-                onComplete();
-                return;
-              }
-              setPatternVisible(true);
-              setReviewOpen(true);
-              setStatus('Pattern revealed! Review the concept and continue.');
-              playSound('success');
-            } else {
-              setStatus('You need to sort all cards correctly.');
-              playSound('error');
-            }
+          onClick={() => handleLabel('AI')}
+          disabled={!selectedId}
+          style={{
+            ...choiceBtn,
+            flex: 1,
+            height: '70px',
+            background: 'linear-gradient(180deg, rgba(75,155,255,0.1) 0%, rgba(75,155,255,0.2) 100%)',
+            border: `2px dashed ${selectedId ? COLORS.accent : 'rgba(255,255,255,0.1)'}`,
+            opacity: selectedId ? 1 : 0.6,
           }}
         >
-          {reviewOpen ? 'Proceed to next district' : 'Complete Mission'}
+          🧠 Learns From Data (AI)
+        </button>
+        <button
+          onClick={() => handleLabel('NOT_AI')}
+          disabled={!selectedId}
+          style={{
+            ...choiceBtn,
+            flex: 1,
+            height: '70px',
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.08) 100%)',
+            border: `2px dashed ${selectedId ? '#b6c7dc' : 'rgba(255,255,255,0.1)'}`,
+            opacity: selectedId ? 1 : 0.6,
+          }}
+        >
+          ⚙️ Follows Fixed Rules (Not AI)
         </button>
       </div>
 
-      {patternVisible ? (
-        <div className="card pattern-graph">
-          <p className="metric-label">Pattern Distribution</p>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, justifyContent: 'center', marginTop: 20 }}>
-            {categories.map((cat, i) => {
-                const counts = categories.map((c) => dataScienceCards.filter((card) => placed[card.label] === c).length);
-                const maxCount = Math.max(...counts, 1);
-                const heights = counts.map((c) => 40 + Math.round((c / maxCount) * 120));
-                return (
-                  <div key={cat} style={{ textAlign: 'center' }}>
-                    <div
-                      style={{
-                        width: 40,
-                        height: `${heights[i]}px`,
-                        background: `linear-gradient(180deg, rgba(75, 155, 255, 0.8), rgba(75, 155, 255, 0.3))`,
-                        borderRadius: '8px 8px 0 0',
-                        marginBottom: 8,
-                        animation: patternVisible ? `growBar 600ms cubic-bezier(.2,.9,.26,1) forwards` : 'none',
-                        animationDelay: `${i * 100}ms`,
-                        transformOrigin: 'bottom',
-                      }}
-                    />
-                    <div style={{ fontSize: '1.2rem' }}>{categoryEmojis[cat as keyof typeof categoryEmojis]}</div>
-                    <div className="small-note" style={{ marginTop: 4, textTransform: 'capitalize' }}>{cat}</div>
-                  </div>
-                );
-              })}
-          </div>
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.85rem' }}>
+          <span>AI Model Confidence</span>
+          <span style={{ color: COLORS.success, fontWeight: 'bold' }}>{confidence}%</span>
         </div>
-      ) : null}
+        <div style={{ width: '100%', height: '12px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '6px', overflow: 'hidden' }}>
+          <div style={{ width: `${confidence}%`, height: '100%', background: 'linear-gradient(90deg, #4b9bff, #5efc82)', transition: 'width 0.4s ease' }} />
+        </div>
+      </div>
 
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
-      />
+      {remainingCount === 0 && (
+        <div style={{ textAlign: 'center', marginTop: '24px', animation: 'celebrate 0.6s ease' }}>
+          <div style={{ color: COLORS.success, fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '8px' }}>🤖 AI TRAINED SUCCESSFULLY!</div>
+          <p style={{ color: COLORS.textSecondary, fontSize: '0.9rem', marginBottom: '16px' }}>
+            You just mapped an AI classification structure. This matrix logic underlies recommendation engines like YouTube!
+          </p>
+          <button style={primaryBtn} onClick={() => { playSound('success'); onComplete(); }}>
+            Advance Mission →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-function ComputerVisionSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'computerVision')!;
+// ============================================================================
+// SECTION 2: CLASSIFICATION FACTORY
+// ============================================================================
+interface S2Item { emoji: string; label: string; desc: string; category: 'Fruit' | 'Animal' | 'Vehicle'; }
+const S2_ITEMS: S2Item[] = [
+  { emoji: '🍎', label: 'Apple', desc: 'Crisp tree crop containing natural sugars and seeds.', category: 'Fruit' },
+  { emoji: '🐕', label: 'Dog', desc: 'Four-legged domesticated mammal that displays canine traits.', category: 'Animal' },
+  { emoji: '🚌', label: 'Bus', desc: 'Large high-capacity motor vehicle engineered for public roads.', category: 'Vehicle' },
+  { emoji: '🍇', label: 'Grapes', desc: 'Small clustered vine berries used worldwide for juices.', category: 'Fruit' },
+  { emoji: '🐦', label: 'Parrot', desc: 'Feathered avian lifeform that can imitate complex acoustic patterns.', category: 'Animal' },
+  { emoji: '🚗', label: 'Car', desc: 'Compact internal combustion or electric private passenger transport.', category: 'Vehicle' },
+  { emoji: '🍌', label: 'Banana', desc: 'Tropical herbaceous plant product known for rich potassium levels.', category: 'Fruit' },
+  { emoji: '🐈', label: 'Cat', desc: 'Carnivorous agile domestic pet specialized in hunt behaviors.', category: 'Animal' },
+  { emoji: '🚕', label: 'Taxi', desc: 'Commercial transport car with yellow hazard signaling frames.', category: 'Vehicle' },
+];
+
+function ClassificationSection({ onComplete }: { onComplete: () => void }) {
   const [gateOpen, setGateOpen] = useState(false);
-  const [selected, setSelected] = useState<Record<string, 'idle' | 'correct' | 'wrong'>>({});
-  const [scanComplete, setScanComplete] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  
-  const livingThings = ['Panda', 'Bird', 'Tree'];
-  const sceneObjects = [
-    { label: 'Panda', icon: '🐼' },
-    { label: 'Car', icon: '🚗' },
-    { label: 'Bird', icon: '🐦' },
-    { label: 'Signal', icon: '🚦' },
-    { label: 'Tree', icon: '🌳' },
-    { label: 'House', icon: '🏠' },
-  ];
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [counts, setCounts] = useState({ Fruit: 0, Animal: 0, Vehicle: 0 });
+  const [shake, setShake] = useState(false);
+  const [novaMessage, setNovaMessage] = useState('Inspect each raw data packet on the belt, and sort it to its categorical bin.');
 
-  const handleTapObject = (label: string) => {
-    if (scanComplete) return;
-    const isCorrect = livingThings.includes(label);
-    setSelected((prev) => ({ ...prev, [label]: isCorrect ? 'correct' : 'wrong' }));
-    playSound(isCorrect ? 'drop' : 'error');
-    
-    if (!isCorrect) {
-      setTimeout(() => setSelected((prev) => ({ ...prev, [label]: 'idle' })), 800);
-    }
-  };
+  if (!gateOpen) {
+    return (
+      <NovaGate
+        lines={[
+          "Great job in District 1! Now we have arrived at the Sorting Terminal.",
+          "AI structures group unfamiliar data using categorical tagging features. Let's see how raw text definitions map cleanly into high-level categories.",
+        ]}
+        onDone={() => setGateOpen(true)}
+      />
+    );
+  }
 
-  useEffect(() => {
-    const correctCountNow = Object.values(selected).filter((s) => s === 'correct').length;
-    if (correctCountNow === livingThings.length && !scanComplete) {
-      // Small delay so the UI can show the last tick
-      setTimeout(() => {
-        handleScanComplete();
-      }, 350);
-    }
-  }, [selected]);
+  const handleSort = (chosen: 'Fruit' | 'Animal' | 'Vehicle') => {
+    if (currentIndex >= S2_ITEMS.length) return;
+    const currentItem = S2_ITEMS[currentIndex];
 
-  const correctCount = Object.values(selected).filter((s) => s === 'correct').length;
-  const allCorrect = correctCount === livingThings.length;
-
-  const handleScanComplete = () => {
-    if (allCorrect) {
-      setScanComplete(true);
-      playSound('success');
-      setTimeout(() => setReviewOpen(true), 600);
+    if (chosen === currentItem.category) {
+      playSound('drop');
+      setCounts(p => ({ ...p, [chosen]: p[chosen] + 1 }));
+      setNovaMessage(`Perfectly filtered! ${currentItem.label} routed to the ${chosen} hub.`);
+      setCurrentIndex(p => p + 1);
     } else {
       playSound('error');
+      setShake(true);
+      setNovaMessage(`Wait, inspect its properties again. Does that matching profile really fit ${chosen}?`);
+      setTimeout(() => setShake(false), 500);
     }
   };
 
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        "The security cameras in NeoCity have gone offline. The AI can't tell what's in each frame!",
-        "You are the AI. I'll show you a scene. Tap every LIVING THING — animals, plants, people.",
-        "Tap non-living things and the alarm goes off. Focus, Explorer!",
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
+  const finished = currentIndex >= S2_ITEMS.length;
+
   return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Scanner Frame</p>
-        <p className="small-note">👾 Captain Nova says: Tap every living creature in the scene. The AI must detect them.</p>
-        <div style={{
-          position: 'relative',
-          marginTop: 20,
-          padding: 20,
-          border: '2px solid rgba(75, 155, 255, 0.5)',
-          borderRadius: 12,
-          background: 'linear-gradient(180deg, rgba(10,30,80,0.3), rgba(8,12,22,0.3))',
-          overflow: 'hidden',
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '3px',
-            background: scanComplete ? '#5efca2' : 'linear-gradient(90deg, transparent, #4bffa5, transparent)',
-            animation: scanComplete ? 'none' : 'scanLine 2s linear infinite',
-          }} />
+    <div style={cardStyle}>
+      <h2 style={{ color: COLORS.accent, margin: '0 0 8px 0' }}>District 2: Classification Factory</h2>
+      <p style={{ color: COLORS.textSecondary, marginBottom: '20px' }}>Process the real-time pipeline feed safely below.</p>
+
+      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '24px' }}>
+        <p style={{ margin: 0, fontSize: '0.95rem', color: COLORS.textPrimary }}>💡 <strong>Nova:</strong> {novaMessage}</p>
+      </div>
+
+      {!finished ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' }}>
+          <div style={{ width: '100%', height: '8px', backgroundColor: '#1a3050', borderRadius: '4px', position: 'relative', marginBottom: '20px' }} />
+          <div
+            className={shake ? 'shake' : ''}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              border: `2px solid ${COLORS.accent}`,
+              borderRadius: '20px',
+              padding: '24px',
+              maxWidth: '340px',
+              textAlign: 'center',
+              animation: 'slideInLeft 0.3s ease-out',
+            }}
+          >
+            <span style={{ fontSize: '3.5rem', display: 'block', marginBottom: '8px' }}>{S2_ITEMS[currentIndex].emoji}</span>
+            <h3 style={{ margin: '0 0 8px 0', color: COLORS.textPrimary }}>{S2_ITEMS[currentIndex].label}</h3>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: COLORS.textSecondary, lineHeight: 1.5 }}>{S2_ITEMS[currentIndex].desc}</p>
+          </div>
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '20px', animation: 'celebrate 0.5s' }}>
+          <h3 style={{ color: COLORS.success, margin: '0 0 16px 0' }}>🌟 CONVEYOR PIPELINE COMPLETED</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-around', gap: '16px', maxWidth: '400px', margin: '0 auto 24px auto' }}>
+            {Object.entries(counts).map(([cat, count]) => (
+              <div key={cat} style={{ background: '#10223b', padding: '12px', borderRadius: '14px', flex: 1 }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: COLORS.accent }}>{count}</div>
+                <div style={{ fontSize: '0.8rem', color: COLORS.textMuted }}>{cat}s</div>
+              </div>
+            ))}
+          </div>
+          <button style={primaryBtn} onClick={() => { playSound('success'); onComplete(); }}>
+            Unlock Next Gate →
+          </button>
+        </div>
+      )}
+
+      {!finished && (
+        <div style={{ display: 'flex', gap: '16px' }}>
+          {(['Fruit', 'Animal', 'Vehicle'] as const).map(cat => (
+            <button
+              key={cat}
+              onClick={() => handleSort(cat)}
+              style={{
+                ...choiceBtn,
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px',
+                borderColor: 'rgba(75, 155, 255, 0.3)',
+                background: 'rgba(16, 35, 64, 0.6)',
+              }}
+            >
+              <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>{cat.toUpperCase()}</span>
+              <span style={{ fontSize: '0.8rem', backgroundColor: COLORS.accent, color: '#fff', padding: '2px 8px', borderRadius: '10px' }}>
+                Count: {counts[cat]}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SECTION 3: TRAINING DATA
+// ============================================================================
+interface S3Animal { type: 'Dog' | 'Cat' | 'Bird'; emoji: string; dots: Array<{ x: number; y: number }>; }
+const S3_ROUNDS: S3Animal[] = [
+  { type: 'Dog', emoji: '🐕', dots: [{ x: 40, y: 160 }, { x: 55, y: 180 }] },
+  { type: 'Cat', emoji: '🐈', dots: [{ x: 140, y: 60 }, { x: 155, y: 45 }] },
+  { type: 'Bird', emoji: '🐦', dots: [{ x: 240, y: 120 }, { x: 260, y: 140 }] },
+  { type: 'Dog', emoji: '🦮', dots: [{ x: 45, y: 145 }] },
+  { type: 'Cat', emoji: '🐈‍⬛', dots: [{ x: 160, y: 75 }] },
+  { type: 'Bird', emoji: '🦅', dots: [{ x: 250, y: 105 }] },
+];
+
+function TrainingDataSection({ onComplete }: { onComplete: () => void }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [round, setRound] = useState(0);
+  const [history, setHistory] = useState<Array<{ x: number; y: number; type: string }>>([]);
+  const [isLearning, setIsLearning] = useState(false);
+  const [modelConfidence, setModelConfidence] = useState(0);
+  const [novaMessage, setNovaMessage] = useState('Train the image classifier. Label the central animal structure.');
+
+  if (!gateOpen) {
+    return (
+      <NovaGate
+        lines={[
+          "Welcome to the Deep Learning Greenhouse, Explorer!",
+          "Algorithms are blank slates until fed structured training examples. Here, you will act as the human labeler to compile a feature set.",
+        ]}
+        onDone={() => setGateOpen(true)}
+      />
+    );
+  }
+
+  const handleLabel = (label: 'Dog' | 'Cat' | 'Bird') => {
+    if (round >= S3_ROUNDS.length || isLearning) return;
+    const currentItem = S3_ROUNDS[round];
+
+    if (label === currentItem.type) {
+      playSound('click');
+      const newDots = currentItem.dots.map(d => ({ ...d, type: label }));
+      setHistory(p => [...p, ...newDots]);
+      setNovaMessage(`Label accepted! Compiling data points into high-dimensional scatter vector space.`);
+      
+      setIsLearning(true);
+      setTimeout(() => {
+        setIsLearning(false);
+        setModelConfidence(Math.floor(70 + (round * 4) + Math.random() * 5));
+        setRound(p => p + 1);
+      }, 900);
+    } else {
+      playSound('error');
+      setNovaMessage(`Mismatched feature vectors! That sample clearly matches typical ${currentItem.type} biome configurations.`);
+    }
+  };
+
+  const finished = round >= S3_ROUNDS.length;
+
+  return (
+    <div style={cardStyle}>
+      <h2 style={{ color: COLORS.accent, margin: '0 0 8px 0' }}>District 3: Training Environment</h2>
+      <p style={{ color: COLORS.textSecondary, marginBottom: '24px' }}>Feed the neural parameters to increase operational confidence weights.</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', marginBottom: '24px' }}>
+        {/* Left: Camera Frame */}
+        <div style={{ backgroundColor: '#0a1626', borderRadius: '16px', border: '2px solid rgba(255,255,255,0.05)', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '220px', position: 'relative' }}>
+          <span style={{ position: 'absolute', top: '10px', left: '10px', fontSize: '0.75rem', color: COLORS.accent, letterSpacing: '1px' }}>🖥️ LIVE CAMERA TARGET</span>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 8 }}>
-            {sceneObjects.map((obj) => {
-              const status = selected[obj.label] || 'idle';
-              const isCorrect = livingThings.includes(obj.label);
+          {!finished ? (
+            isLearning ? (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '0.9rem', color: COLORS.accent, marginBottom: '8px', animation: 'blink 1s infinite' }}>OPTIMIZING WEIGHTS...</div>
+                <div style={{ width: '120px', height: '6px', backgroundColor: '#1a3050', borderRadius: '3px', overflow: 'hidden', margin: '0 auto' }}>
+                  <div style={{ width: '100%', height: '100%', backgroundColor: COLORS.success, animation: 'readyPulse 1s infinite' }} />
+                </div>
+              </div>
+            ) : (
+              <span style={{ fontSize: '4.5rem' }}>{S3_ROUNDS[round].emoji}</span>
+            )
+          ) : (
+            <div style={{ textAlign: 'center', color: COLORS.success }}>
+              <span style={{ fontSize: '3rem' }}>✅</span>
+              <div style={{ fontWeight: 'bold', fontSize: '1rem', marginTop: '6px' }}>TRAINING COMPLETE</div>
+            </div>
+          )}
+        </div>
+
+        {/* Right: SVG Scatter Plot */}
+        <div style={{ backgroundColor: '#091220', borderRadius: '16px', padding: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, display: 'block', marginBottom: '8px', textAlign: 'center' }}>EMBEDDING SPATIAL MAP</span>
+          <svg style={{ width: '100%', height: '160px', backgroundColor: '#040b14', borderRadius: '8px' }}>
+            {/* Theoretical clusters rings */}
+            <circle cx="50" cy="150" r="25" fill="none" stroke="rgba(255, 100, 100, 0.15)" strokeWidth="1" strokeDasharray="3" />
+            <circle cx="150" cy="60" r="25" fill="none" stroke="rgba(94, 252, 130, 0.15)" strokeWidth="1" strokeDasharray="3" />
+            <circle cx="250" cy="120" r="25" fill="none" stroke="rgba(75, 155, 255, 0.15)" strokeWidth="1" strokeDasharray="3" />
+            
+            {history.map((dot, idx) => {
+              const color = dot.type === 'Dog' ? '#ff6464' : dot.type === 'Cat' ? '#5efc82' : '#4b9bff';
+              return <circle key={idx} cx={dot.x} cy={dot.y} r="5" fill={color} style={{ animation: 'slideUp 0.3s ease' }} />;
+            })}
+          </svg>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', fontSize: '0.7rem', marginTop: '6px' }}>
+            <span style={{ color: '#ff6464' }}>● Dog</span>
+            <span style={{ color: '#5efc82' }}>● Cat</span>
+            <span style={{ color: '#4b9bff' }}>● Bird</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '24px' }}>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>💡 {novaMessage}</p>
+      </div>
+
+      {!finished ? (
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {(['Dog', 'Cat', 'Bird'] as const).map(animal => (
+            <button
+              key={animal}
+              disabled={isLearning}
+              onClick={() => handleLabel(animal)}
+              style={{ ...choiceBtn, flex: 1, height: '52px', border: '1px solid rgba(75,155,255,0.2)' }}
+            >
+              {animal === 'Dog' ? '🐶 Dog' : animal === 'Cat' ? '🐱 Cat' : '🐦 Bird'}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '20px', background: 'rgba(94,252,130,0.05)', padding: '12px', borderRadius: '12px' }}>
+            <span style={{ fontSize: '0.9rem' }}>Final Model Precision:</span>
+            <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: COLORS.success }}>{modelConfidence}%</span>
+          </div>
+          <button style={primaryBtn} onClick={() => { playSound('success'); onComplete(); }}>
+            Initiate District 4 Pipeline →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SECTION 4: COMPUTER VISION SCANNER
+// ============================================================================
+interface CVTarget { id: string; emoji: string; name: string; isLiving: boolean; x: string; top: string; }
+const CV_TARGETS: CVTarget[] = [
+  { id: '1', emoji: '🐼', name: 'Animal 🐾', isLiving: true, x: '15%', top: '25%' },
+  { id: '2', emoji: '🚗', name: 'Vehicle', isLiving: false, x: '45%', top: '50%' },
+  { id: '3', emoji: '🐦', name: 'Animal 🐾', isLiving: true, x: '75%', top: '15%' },
+  { id: '4', emoji: '🌳', name: 'Plant life', isLiving: true, x: '18%', top: '65%' },
+  { id: '5', emoji: '🚦', name: 'Signal hardware', isLiving: false, x: '72%', top: '55%' },
+  { id: '6', emoji: '🏠', name: 'Structure', isLiving: false, x: '45%', top: '15%' },
+];
+
+function ComputerVisionSection({ onComplete }: { onComplete: () => void }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [detected, setDetected] = useState<string[]>([]);
+  const [wrongFlashedId, setWrongFlashedId] = useState<string | null>(null);
+  const [novaMessage, setNovaMessage] = useState('Identify and lock onto every LIVING organism present in the camera stream frame.');
+
+  if (!gateOpen) {
+    return (
+      <NovaGate
+        lines={[
+          "Entering District 4: Computer Vision Observatory.",
+          "Self-driving arrays and spatial safety protocols rely on optical grid frames. We need to focus convolutional filters only onto active living obstacles.",
+        ]}
+        onDone={() => setGateOpen(true)}
+      />
+    );
+  }
+
+  const handleTargetClick = (target: CVTarget) => {
+    if (target.isLiving) {
+      if (detected.includes(target.id)) return;
+      playSound('click');
+      setDetected(p => [...p, target.id]);
+      setNovaMessage(`Locked onto ${target.name}! Bounding boxes aligned correctly.`);
+    } else {
+      playSound('error');
+      setWrongFlashedId(target.id);
+      setNovaMessage(`Target tracking failure: A ${target.name} does not possess biological signatures. Filter rejected.`);
+      setTimeout(() => setWrongFlashedId(null), 800);
+    }
+  };
+
+  const remaining = CV_TARGETS.filter(t => t.isLiving && !detected.includes(t.id)).length;
+
+  return (
+    <div style={cardStyle}>
+      <h2 style={{ color: COLORS.accent, margin: '0 0 8px 0' }}>District 4: Computer Vision Core</h2>
+      <p style={{ color: COLORS.textSecondary, marginBottom: '20px' }}>Tap live target icons to compile anchor matrices.</p>
+
+      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px' }}>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>📡 {novaMessage}</p>
+      </div>
+
+      <div style={{ width: '100%', height: '280px', backgroundColor: '#040d1a', borderRadius: '20px', border: '2px solid rgba(75,155,255,0.15)', position: 'relative', overflow: 'hidden', marginBottom: '24px' }}>
+        {/* Continuous Scanline */}
+        <div style={{ position: 'absolute', width: '100%', height: '4px', background: 'linear-gradient(90deg, transparent, #5efc82, transparent)', animation: 'scanLine 2.5s linear infinite', zIndex: 2, pointerEvents: 'none' }} />
+
+        {CV_TARGETS.map(t => {
+          const isFound = detected.includes(t.id);
+          const isWrong = wrongFlashedId === t.id;
+
+          return (
+            <div
+              key={t.id}
+              onClick={() => handleTargetClick(t)}
+              style={{
+                position: 'absolute',
+                left: t.x,
+                top: t.top,
+                transform: 'translate(-50%, -50%)',
+                cursor: 'pointer',
+                padding: '10px',
+                userSelect: 'none',
+                minWidth: '48px',
+                minHeight: '48px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <span style={{ fontSize: '2.5rem', transition: 'transform 0.2s', transform: isFound ? 'scale(1.1)' : 'none' }}>{t.emoji}</span>
+
+              {isFound && (
+                <div style={{ position: 'absolute', width: '55px', height: '55px', border: `2px solid ${COLORS.success}`, borderRadius: '6px', animation: 'drawBorder 0.4s ease-out forwards', top: '5%', left: '5%' }}>
+                  <span style={{ position: 'absolute', top: '-18px', left: '0', backgroundColor: COLORS.success, color: '#000', fontSize: '0.65rem', fontWeight: 'bold', padding: '1px 4px', whiteSpace: 'nowrap', borderRadius: '3px' }}>
+                    {t.name}
+                  </span>
+                </div>
+              )}
+
+              {isWrong && (
+                <div style={{ position: 'absolute', fontSize: '2rem', color: COLORS.error, animation: 'shake 0.3s ease' }}>❌</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {remaining === 0 && (
+        <div style={{ textAlign: 'center', padding: '10px', animation: 'celebrate 0.5s' }}>
+          <div style={{ color: COLORS.success, fontWeight: 'bold', marginBottom: '12px' }}>🎯 VISION MATRICES SYNCHRONIZED</div>
+          <button style={primaryBtn} onClick={() => { playSound('success'); onComplete(); }}>
+            Engage NLP Core →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SECTION 5: NATURAL LANGUAGE PROCESSING (NLP)
+// ============================================================================
+interface S5Message { text: string; category: 'pos' | 'neu' | 'neg'; }
+const S5_DATA: S5Message[] = [
+  { text: "I absolutely love this new phone! Best purchase ever.", category: 'pos' },
+  { text: "The train arrives at 3pm.", category: 'neu' },
+  { text: "This movie was a complete waste of time.", category: 'neg' },
+  { text: "The weather today is partly cloudy.", category: 'neu' },
+  { text: "Captain Nova saved NeoCity and it was incredible!", category: 'pos' },
+  { text: "The system crashed again. I'm so frustrated.", category: 'neg' },
+];
+
+function NLPSection({ onComplete }: { onComplete: () => void }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [meter, setMeter] = useState(40);
+  const [customText, setCustomText] = useState('');
+  const [customAnalysis, setCustomAnalysis] = useState<string | null>(null);
+  const [isShake, setIsShake] = useState(false);
+  const [novaHint, setNovaHint] = useState('Analyze the incoming atmospheric radio feed for semantic weight values.');
+
+  if (!gateOpen) {
+    return (
+      <NovaGate
+        lines={[
+          "System locked at the Language Harbor terminal.",
+          "Natural Language Processing breaks continuous strings into lexical chunks, determining sentiment weights automatically. Let's benchmark the processor core.",
+        ]}
+        onDone={() => setGateOpen(true)}
+      />
+    );
+  }
+
+  const handleSentiment = (type: 'pos' | 'neu' | 'neg') => {
+    if (index >= S5_DATA.length) return;
+    const current = S5_DATA[index];
+
+    if (type === current.category) {
+      playSound('drop');
+      setMeter(p => Math.min(100, p + 10));
+      setNovaHint(`Correct parsing! Metric weights optimized successfully.`);
+      setIndex(p => p + 1);
+    } else {
+      playSound('error');
+      setIsShake(true);
+      setMeter(p => Math.max(0, p - 5));
+      setNovaHint(`Semantic mismatch: Consider contextual keywords within the active message buffer.`);
+      setTimeout(() => setIsShake(false), 500);
+    }
+  };
+
+  const handleCustomTest = (val: string) => {
+    setCustomText(val);
+    if (!val.trim()) {
+      setCustomAnalysis(null);
+      return;
+    }
+    const txt = val.toLowerCase();
+    if (txt.includes('good') || txt.includes('great') || txt.includes('love') || txt.includes('happy')) {
+      setCustomAnalysis('😊 POSITIVE SENTIMENT LOADED');
+    } else if (txt.includes('bad') || txt.includes('sad') || txt.includes('fail') || txt.includes('error') || txt.includes('hate')) {
+      setCustomAnalysis('😠 NEGATIVE SENTIMENT SCANNED');
+    } else {
+      setCustomAnalysis('😐 NEUTRAL MATRIX ALIGNED');
+    }
+  };
+
+  const finished = index >= S5_DATA.length;
+
+  return (
+    <div style={cardStyle}>
+      <h2 style={{ color: COLORS.accent, margin: '0 0 4px 0' }}>District 5: Language Harbor</h2>
+      <p style={{ color: COLORS.textSecondary, marginBottom: '20px' }}>Evaluate linguistic tensors to configure semantic tracking nodes.</p>
+
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
+          <span>NLP Parsing Confidence Indicator</span>
+          <span style={{ color: COLORS.accent, fontWeight: 'bold' }}>{meter}%</span>
+        </div>
+        <div style={{ width: '100%', height: '10px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '5px', overflow: 'hidden' }}>
+          <div style={{ width: `${meter}%`, height: '100%', backgroundColor: COLORS.accent, transition: 'width 0.3s ease' }} />
+        </div>
+      </div>
+
+      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '24px' }}>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>💡 <strong>Nova:</strong> {novaHint}</p>
+      </div>
+
+      {!finished ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+          <div className={isShake ? 'shake' : ''} style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderLeft: `4px solid ${COLORS.accent}`, padding: '20px', borderRadius: '0 16px 16px 0' }}>
+            <span style={{ display: 'block', fontSize: '0.75rem', color: COLORS.textMuted, marginBottom: '6px' }}>INCOMING STREAMING BUFFER:</span>
+            <p style={{ margin: 0, fontSize: '1.1rem', fontStyle: 'italic', color: '#fff' }}>"{S5_DATA[index].text}"</p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleSentiment('pos')}>😊 Positive</button>
+            <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleSentiment('neu')}>😐 Neutral</button>
+            <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleSentiment('neg')}>😠 Negative</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px', animation: 'slideUp 0.4s' }}>
+          <h4 style={{ color: COLORS.success, margin: '0 0 12px 0' }}>⚡ SANDBOX PARSER DEMO REVEALED</h4>
+          <p style={{ fontSize: '0.85rem', color: COLORS.textSecondary, marginBottom: '12px' }}>
+            Type any custom testing sequence into the prompt terminal below to observe simulated keyword processing configurations:
+          </p>
+          <input
+            type="text"
+            placeholder="Type 'This is amazing' or 'Terrible structural error'..."
+            value={customText}
+            onChange={(e) => handleCustomTest(e.target.value)}
+            style={{ width: '100%', minHeight: '48px', padding: '12px', borderRadius: '10px', backgroundColor: '#07101e', border: `1px solid ${COLORS.accent}`, color: '#fff', marginBottom: '12px' }}
+          />
+          {customAnalysis && (
+            <div style={{ padding: '10px', backgroundColor: 'rgba(75,155,255,0.1)', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', color: '#fff', marginBottom: '20px' }}>
+              {customAnalysis}
+            </div>
+          )}
+          <button style={{ ...primaryBtn, width: '100%' }} onClick={() => { playSound('success'); onComplete(); }}>
+            Route to Regression Observatory →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SECTION 6: REGRESSION OBSERVATORY
+// ============================================================================
+function RegressionSection({ onComplete }: { onComplete: () => void }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [hours, setHours] = useState(5);
+  const [sleep, setSleep] = useState(3);
+  const [locked, setLocked] = useState(false);
+
+  // Constants for fixed baseline coordinates
+  const staticPoints = [
+    { h: 2, m: 42 }, { h: 3, m: 50 }, { h: 6, m: 65 }, { h: 8, m: 82 }
+  ];
+
+  if (!gateOpen) {
+    return (
+      <NovaGate
+        lines={[
+          "Welcome to the Celestial Predictor Terminal, District 6.",
+          "Regression maps numerical causal configurations along geometric slope intercepts. Let's calibrate continuous score trends instantly based on input variables.",
+        ]}
+        onDone={() => setGateOpen(true)}
+      />
+    );
+  }
+
+  // Formula: Base Score 30 + (Study Hours * 5) + (Sleep Quality * 4)
+  const predicted = Math.min(100, 30 + (hours * 5) + (sleep * 4));
+
+  return (
+    <div style={cardStyle}>
+      <h2 style={{ color: COLORS.accent, margin: '0 0 4px 0' }}>District 6: Regression Observatory</h2>
+      <p style={{ color: COLORS.textSecondary, marginBottom: '20px' }}>Manipulate vector variables to trace numerical dependencies.</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', marginBottom: '24px' }}>
+        {/* SVG Scatter Plot Chart */}
+        <div style={{ backgroundColor: '#050c16', borderRadius: '16px', padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <svg style={{ width: '100%', height: '220px', backgroundColor: '#02060d', borderRadius: '8px' }}>
+            {/* Grid markers lines */}
+            <line x1="30" y1="190" x2="280" y2="190" stroke="#1d2e47" strokeWidth="2" />
+            <line x1="30" y1="20" x2="30" y2="190" stroke="#1d2e47" strokeWidth="2" />
+
+            {/* Existing historical telemetry dots */}
+            {staticPoints.map((p, idx) => {
+              const cx = 30 + (p.h * 24);
+              const cy = 190 - (p.m * 1.6);
+              return <circle key={idx} cx={cx} cy={cy} r="5" fill="#5b7493" />;
+            })}
+
+            {/* Dynamic Interactive Node */}
+            <circle
+              cx={30 + (hours * 24)}
+              cy={190 - (predicted * 1.6)}
+              r="8"
+              fill={locked ? COLORS.success : '#ff9f43'}
+              style={{ transition: 'cx 0.1s, cy 0.1s', animation: 'readyPulse 2s infinite' }}
+            />
+
+            {/* Dynamic Calculated Line Vector */}
+            <line
+              x1="30"
+              y1={190 - (30 + (1 * 5) + (sleep * 4)) * 1.6}
+              x2="270"
+              y2={190 - (Math.min(100, 30 + (10 * 5) + (sleep * 4))) * 1.6}
+              stroke={locked ? COLORS.success : COLORS.accent}
+              strokeWidth="2"
+              strokeDasharray={locked ? '0' : '4'}
+              style={{ transition: 'y1 0.1s, y2 0.1s' }}
+            />
+          </svg>
+          <div style={{ fontSize: '0.7rem', color: COLORS.textMuted, marginTop: '4px' }}>
+            X: Hours Evaluated | Y: Score Core Output
+          </div>
+        </div>
+
+        {/* Sliders Console */}
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '16px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '6px', color: COLORS.textPrimary }}>
+              📚 Hours Evaluated: <strong style={{ color: COLORS.accent }}>{hours} hrs</strong>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              disabled={locked}
+              value={hours}
+              onChange={(e) => { playSound('click'); setHours(Number(e.target.value)); }}
+              style={{ width: '100%', accentColor: COLORS.accent }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '6px', color: COLORS.textPrimary }}>
+              😴 Rest Level: <strong style={{ color: COLORS.accent }}>{sleep} / 5</strong>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              disabled={locked}
+              value={sleep}
+              onChange={(e) => { playSound('click'); setSleep(Number(e.target.value)); }}
+              style={{ width: '100%', accentColor: COLORS.accent }}
+            />
+          </div>
+
+          <div style={{ backgroundColor: '#10223b', padding: '10px', borderRadius: '10px', textAlign: 'center' }}>
+            <span style={{ fontSize: '0.75rem', display: 'block', color: COLORS.textMuted }}>PREDICTED RESULT</span>
+            <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: locked ? COLORS.success : '#ff9f43' }}>
+              📍 {predicted} Marks
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '12px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', fontSize: '0.85rem', color: COLORS.textSecondary, marginBottom: '20px', fontFamily: 'monospace', textAlign: 'center' }}>
+        TENSOR FORMULA Matrix: Base(30) + (Hours×5) + (Rest×4) = {predicted}
+      </div>
+
+      {!locked ? (
+        <button style={{ ...primaryBtn, width: '100%' }} onClick={() => { playSound('power'); setLocked(true); }}>
+          Lock Linear Prediction Weights
+        </button>
+      ) : (
+        <div style={{ textAlign: 'center', animation: 'celebrate 0.5s' }}>
+          <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: COLORS.success }}>
+            ✅ Trend Locked! Logistics operators like Swiggy use precisely this methodology to predict package dispatch times.
+          </p>
+          <button style={{ ...primaryBtn, width: '100%' }} onClick={() => onComplete()}>
+            Proceed to Clustering Forest →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SECTION 7: CLUSTERING FOREST
+// ============================================================================
+interface ClusterNode { id: string; emoji: string; category: 'Shape' | 'Animal' | 'Tool'; x: number; y: number; }
+const S7_NODES: ClusterNode[] = [
+  { id: '1', emoji: '🔺', category: 'Shape', x: 50, y: 50 },
+  { id: '2', emoji: '🔵', category: 'Shape', x: 80, y: 40 },
+  { id: '3', emoji: '⬛', category: 'Shape', x: 65, y: 75 },
+  
+  { id: '4', emoji: '🦊', category: 'Animal', x: 230, y: 60 },
+  { id: '5', emoji: '🐈', category: 'Animal', x: 250, y: 90 },
+  { id: '6', emoji: '🐰', category: 'Animal', x: 210, y: 100 },
+  
+  { id: '7', emoji: '📦', category: 'Tool', x: 140, y: 180 },
+  { id: '8', emoji: '🎒', category: 'Tool', x: 170, y: 210 },
+  { id: '9', emoji: '🪑', category: 'Tool', x: 120, y: 220 },
+
+  { id: '10', emoji: '🐸', category: 'Animal', x: 240, y: 130 },
+];
+
+function ClusteringSection({ onComplete }: { onComplete: () => void }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [assignments, setAssignments] = useState<Record<string, 'RED' | 'GREEN' | 'BLUE'>>({});
+  const [novaMessage, setNovaMessage] = useState('Unlabeled vector elements detected. Group identical types onto common field arrays.');
+  const [shakeTrigger, setShakeTrigger] = useState(false);
+
+  if (!gateOpen) {
+    return (
+      <NovaGate
+        lines={[
+          "Entering District 7: Clustering Wilderness Canvas.",
+          "Unsupervised network routines locate intrinsic patterns without prior human tagging files. Group adjacent structural behaviors to align regional centroids.",
+        ]}
+        onDone={() => setGateOpen(true)}
+      />
+    );
+  }
+
+  const handleCampAssign = (camp: 'RED' | 'GREEN' | 'BLUE') => {
+    if (!selectedNodeId) return;
+    playSound('drop');
+    setAssignments(p => ({ ...p, [selectedNodeId]: camp }));
+    setSelectedNodeId(null);
+  };
+
+  const checkValidation = () => {
+    // Validate if same category items are in unique distinct camps
+    const shapeCamps = S7_NODES.filter(n => n.category === 'Shape').map(n => assignments[n.id]);
+    const animalCamps = S7_NODES.filter(n => n.category === 'Animal').map(n => assignments[n.id]);
+    const toolCamps = S7_NODES.filter(n => n.category === 'Tool').map(n => assignments[n.id]);
+
+    const allAssigned = S7_NODES.every(n => assignments[n.id]);
+    if (!allAssigned) {
+      playSound('error');
+      setNovaMessage('Unfinished processing! Please distribute every floating node data cluster.');
+      return;
+    }
+
+    const shapesUniform = shapeCamps.every(v => v && v === shapeCamps[0]);
+    const animalsUniform = animalCamps.every(v => v && v === animalCamps[0]);
+    const toolsUniform = toolCamps.every(v => v && v === toolCamps[0]);
+    
+    const uniqueCamps = new Set([shapeCamps[0], animalCamps[0], toolCamps[0]]).size === 3;
+
+    if (shapesUniform && animalsUniform && toolsUniform && uniqueCamps) {
+      playSound('success');
+      setNovaMessage('CLUSTERS VALIDATED! Unsupervised spatial separation completely functional.');
+    } else {
+      playSound('error');
+      setShakeTrigger(true);
+      setNovaMessage('Overlapping vector limits detected! Ensure nodes of different profiles occupy separate color hubs.');
+      setTimeout(() => setShakeTrigger(false), 600);
+    }
+  };
+
+  const isSuccess = novaMessage.startsWith('CLUSTERS VALIDATED');
+
+  return (
+    <div style={cardStyle}>
+      <h2 style={{ color: COLORS.accent, margin: '0 0 4px 0' }}>District 7: Unsupervised Clustering Forest</h2>
+      <p style={{ color: COLORS.textSecondary, marginBottom: '16px' }}>Select an object node element, then isolate it into a camp network cluster.</p>
+
+      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px' }}>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>💡 {novaMessage}</p>
+      </div>
+
+      <div className={shakeTrigger ? 'shake' : ''} style={{ position: 'relative', width: '100%', height: '250px', backgroundColor: '#030a14', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: '20px' }}>
+        <svg style={{ position: 'absolute', width: '100%', height: '100%', pointerEvents: 'none' }}>
+          {/* Dynamically drawing connection links between shared camps nodes */}
+          {S7_NODES.map((n1, i) => 
+            S7_NODES.map((n2, j) => {
+              if (i >= j) return null;
+              const c1 = assignments[n1.id];
+              const c2 = assignments[n2.id];
+              if (c1 && c1 === c2) {
+                const color = c1 === 'RED' ? '#ff6464' : c1 === 'GREEN' ? '#5efc82' : '#4b9bff';
+                return (
+                  <line
+                    key={`${n1.id}-${n2.id}`}
+                    x1={n1.x + 12}
+                    y1={n1.y + 12}
+                    x2={n2.x + 12}
+                    y2={n2.y + 12}
+                    stroke={color}
+                    strokeWidth="1.5"
+                    opacity="0.6"
+                  />
+                );
+              }
+              return null;
+            })
+          )}
+        </svg>
+
+        {S7_NODES.map(n => {
+          const camp = assignments[n.id];
+          const isSelected = selectedNodeId === n.id;
+          let borderCol = 'transparent';
+          if (isSelected) borderCol = '#fff';
+          else if (camp === 'RED') borderCol = '#ff6464';
+          else if (camp === 'GREEN') borderCol = '#5efc82';
+          else if (camp === 'BLUE') borderCol = '#4b9bff';
+
+          return (
+            <button
+              key={n.id}
+              onClick={() => { playSound('click'); setSelectedNodeId(n.id); }}
+              style={{
+                position: 'absolute',
+                left: `${n.x}px`,
+                top: `${n.y}px`,
+                background: 'none',
+                border: `2px solid ${borderCol}`,
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.3rem',
+                backgroundColor: isSelected ? 'rgba(255,255,255,0.15)' : 'transparent',
+                boxShadow: isSelected ? '0 0 10px #fff' : 'none',
+              }}
+            >
+              {n.emoji}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+        <button
+          disabled={!selectedNodeId}
+          onClick={() => handleCampAssign('RED')}
+          style={{ ...choiceBtn, flex: 1, color: '#ff6464', borderColor: '#ff6464', backgroundColor: 'rgba(255,100,100,0.05)' }}
+        >
+          🔴 Red Camp
+        </button>
+        <button
+          disabled={!selectedNodeId}
+          onClick={() => handleCampAssign('GREEN')}
+          style={{ ...choiceBtn, flex: 1, color: '#5efc82', borderColor: '#5efc82', backgroundColor: 'rgba(94,252,130,0.05)' }}
+        >
+          🟢 Green Camp
+        </button>
+        <button
+          disabled={!selectedNodeId}
+          onClick={() => handleCampAssign('BLUE')}
+          style={{ ...choiceBtn, flex: 1, color: '#4b9bff', borderColor: '#4b9bff', backgroundColor: 'rgba(75,155,255,0.05)' }}
+        >
+          🔵 Blue Camp
+        </button>
+      </div>
+
+      {!isSuccess ? (
+        <button style={{ ...primaryBtn, width: '100%' }} onClick={checkValidation}>
+          Verify K-Means Cluster Boundaries
+        </button>
+      ) : (
+        <div style={{ textAlign: 'center', animation: 'celebrate 0.4s' }}>
+          <p style={{ fontSize: '0.85rem', color: COLORS.textSecondary, marginBottom: '12px' }}>
+            Excellent data topology separation. Spotify uses unsupervised clustering architectures to compile weekly listener algorithmic playlists!
+          </p>
+          <button style={primaryBtn} onClick={() => onComplete()}>
+            Proceed to Data Vault →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SECTION 8: DATA TYPES VAULT
+// ============================================================================
+interface Riddle { q: string; a: 'Structured' | 'Unstructured' | 'Time-Series' | 'Spatial'; hint: string; }
+const RIDDLES: Riddle[] = [
+  { q: "A spreadsheet array showing structured names, numerical grades, and student counts.", a: 'Structured', hint: "Data residing neatly in formal tables, rows, or tabular data parameters." },
+  { q: "Thousands of high-definition Instagram jpeg photographs uploaded without tables.", a: 'Unstructured', hint: "Free-flowing assets like media logs or unstructured video files." },
+  { q: "Temperature telemetry recordings logged continuously every 10 minutes over 6 months.", a: 'Time-Series', hint: "Tracking continuous timeline updates ordered explicitly by chronal timestamps." },
+  { q: "Live GPS coordinates tracking coordinates of active delivery vessels across the city map.", a: 'Spatial', hint: "Positional telemetry based on absolute geographic coordinate tracking models." },
+];
+
+function DataTypesSection({ onComplete }: { onComplete: () => void }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [currentRiddleIdx, setCurrentRiddleIdx] = useState(0);
+  const [shake, setShake] = useState(false);
+  const [novaMessage, setNovaMessage] = useState('Crack the vault parameters by classifying data storage signatures.');
+
+  if (!gateOpen) {
+    return (
+      <NovaGate
+        lines={[
+          "Arrived at District 8: The Central Data Crypt.",
+          "Different models demand specific data formats. Let's analyze architecture formats to unlock the security layers.",
+        ]}
+        onDone={() => setGateOpen(true)}
+      />
+    );
+  }
+
+  const handleAnswer = (ans: 'Structured' | 'Unstructured' | 'Time-Series' | 'Spatial') => {
+    if (currentRiddleIdx >= RIDDLES.length) return;
+    const current = RIDDLES[currentRiddleIdx];
+
+    if (ans === current.a) {
+      playSound('success');
+      setNovaMessage(`Security ring unlocked! Access layer confirmed.`);
+      setCurrentRiddleIdx(p => p + 1);
+    } else {
+      playSound('error');
+      setShake(true);
+      setNovaMessage(`Access Denied! Hint: ${current.hint}`);
+      setTimeout(() => setShake(false), 600);
+    }
+  };
+
+  const finished = currentRiddleIdx >= RIDDLES.length;
+
+  return (
+    <div style={cardStyle}>
+      <h2 style={{ color: COLORS.accent, margin: '0 0 4px 0' }}>District 8: The Data Crypt Vault</h2>
+      <p style={{ color: COLORS.textSecondary, marginBottom: '24px' }}>Decrypt security variables sequentially to unlock the primary files.</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '20px', marginBottom: '24px', alignItems: 'center' }}>
+        {/* SVG Concentric Lock Rings Graphics */}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <svg style={{ width: '160px', height: '160px' }} viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="40" fill="none" stroke={currentRiddleIdx > 0 ? COLORS.success : '#203a61'} strokeWidth="4" strokeDasharray="10 5" style={{ transformOrigin: '50% 50%', transform: `rotate(${currentRiddleIdx * 45}deg)`, transition: 'transform 0.5s' }} />
+            <circle cx="50" cy="50" r="30" fill="none" stroke={currentRiddleIdx > 1 ? COLORS.success : '#2a4d80'} strokeWidth="4" strokeDasharray="6 4" style={{ transformOrigin: '50% 50%', transform: `rotate(-${currentRiddleIdx * 60}deg)`, transition: 'transform 0.5s' }} />
+            <circle cx="50" cy="50" r="20" fill="none" stroke={currentRiddleIdx > 2 ? COLORS.success : '#3560a1'} strokeWidth="4" style={{ transformOrigin: '50% 50%', transform: `rotate(${currentRiddleIdx * 90}deg)`, transition: 'transform 0.5s' }} />
+            <circle cx="50" cy="50" r="8" fill={finished ? COLORS.success : '#ffbb00'} />
+          </svg>
+        </div>
+
+        {/* Quest text terminal window */}
+        <div className={shake ? 'shake' : ''} style={{ backgroundColor: '#091526', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <span style={{ fontSize: '0.75rem', color: COLORS.accent, fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>ENCRYPTED LOCK INTERFACE:</span>
+          {!finished ? (
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#fff', lineHeight: 1.5 }}>"{RIDDLES[currentRiddleIdx].q}"</p>
+          ) : (
+            <p style={{ margin: 0, fontSize: '0.95rem', color: COLORS.success, fontWeight: 'bold' }}>🔓 CRYPT CORE ACCESSED SUCCESSFULLY</p>
+          )}
+        </div>
+      </div>
+
+      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '24px' }}>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>📡 {novaMessage}</p>
+      </div>
+
+      {!finished ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <button style={choiceBtn} onClick={() => handleAnswer('Structured')}>🗂️ Structured</button>
+          <button style={choiceBtn} onClick={() => handleAnswer('Unstructured')}>🌊 Unstructured</button>
+          <button style={choiceBtn} onClick={() => handleAnswer('Time-Series')}>⏱️ Time-Series</button>
+          <button style={choiceBtn} onClick={() => handleAnswer('Spatial')}>🗺️ Spatial</button>
+        </div>
+      ) : (
+        <button style={{ ...primaryBtn, width: '100%' }} onClick={() => onComplete()}>
+          Assemble Pipeline Machine →
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SECTION 9: AI WORKFLOW PIPELINE
+// ============================================================================
+const PIPELINE_STEPS = [
+  { id: 'S1', label: 'Define the Problem', emoji: '🎯' },
+  { id: 'S2', label: 'Collect Data', emoji: '📥' },
+  { id: 'S3', label: 'Clean & Prepare Data', emoji: '🧹' },
+  { id: 'S4', label: 'Train the Model', emoji: '🏋️' },
+  { id: 'S5', label: 'Test & Evaluate', emoji: '🧪' },
+];
+
+function AIWorkflowSection({ onComplete }: { onComplete: () => void }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [slots, setSlots] = useState<Array<string | null>>([null, null, null, null, null]);
+  const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
+  const [pool, setPool] = useState<string[]>(['S3', 'S1', 'S5', 'S2', 'S4']); // Shuffled original sequence
+  const [isValidated, setIsValidated] = useState(false);
+  const [novaMessage, setNovaMessage] = useState('Map lifecycle items into logical sequential pipeline slots.');
+  const [shake, setShake] = useState(false);
+
+  if (!gateOpen) {
+    return (
+      <NovaGate
+        lines={[
+          "Arrived at District 9: System Pipeline Factory.",
+          "Engineering reliable software requires adhering to sequential methodology. You cannot train parameters without parsing training datasets first!",
+        ]}
+        onDone={() => setGateOpen(true)}
+      />
+    );
+  }
+
+  const handleSlotClick = (slotIdx: number) => {
+    if (isValidated) return;
+    
+    // If a pool item is selected, place it
+    if (selectedPoolId) {
+      playSound('click');
+      const nextSlots = [...slots];
+      const occupiedId = nextSlots[slotIdx];
+      
+      nextSlots[slotIdx] = selectedPoolId;
+      setSlots(nextSlots);
+      setPool(p => {
+        const filtered = p.filter(id => id !== selectedPoolId);
+        if (occupiedId) filtered.push(occupiedId);
+        return filtered;
+      });
+      setSelectedPoolId(null);
+    } else {
+      // Remove from slot back to pool
+      const currentId = slots[slotIdx];
+      if (!currentId) return;
+      playSound('click');
+      const nextSlots = [...slots];
+      nextSlots[slotIdx] = null;
+      setSlots(nextSlots);
+      setPool(p => [...p, currentId]);
+    }
+  };
+
+  const verifyPipeline = () => {
+    const sequenceCorrect = slots.every((id, idx) => id === `S${idx + 1}`);
+    if (sequenceCorrect) {
+      playSound('success');
+      setIsValidated(true);
+      setNovaMessage('SYSTEM PIPELINE ONLINE! Core deployment matrices finalized.');
+    } else {
+      playSound('error');
+      setShake(true);
+      setNovaMessage('Execution runtime failure: Stages sequence broken. Remember, cleansing raw blocks always precedes model optimization weights.');
+      setTimeout(() => setShake(false), 500);
+    }
+  };
+
+  return (
+    <div style={cardStyle}>
+      <h2 style={{ color: COLORS.accent, margin: '0 0 4px 0' }}>District 9: The AI Pipeline Machine</h2>
+      <p style={{ color: COLORS.textSecondary, marginBottom: '20px' }}>Structure stages sequentially from left to right to build an operational system.</p>
+
+      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px' }}>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>💡 {novaMessage}</p>
+      </div>
+
+      {/* Target Slots Tracks */}
+      <div className={shake ? 'shake' : ''} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', marginBottom: '24px' }}>
+        {slots.map((id, idx) => {
+          const stepObj = PIPELINE_STEPS.find(s => s.id === id);
+          return (
+            <div
+              key={idx}
+              onClick={() => handleSlotClick(idx)}
+              style={{
+                minHeight: '90px',
+                border: `2px dashed ${id ? COLORS.accent : 'rgba(255,255,255,0.15)'}`,
+                borderRadius: '16px',
+                backgroundColor: id ? 'rgba(75,155,255,0.06)' : 'transparent',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                padding: '8px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: '0.7rem', color: COLORS.textMuted, marginBottom: '4px' }}>STAGE 0{idx + 1}</div>
+              {stepObj ? (
+                <>
+                  <span style={{ fontSize: '1.4rem' }}>{stepObj.emoji}</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stepObj.label}</span>
+                </>
+              ) : (
+                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>[Empty]</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Unallocated Items Pool */}
+      {!isValidated && (
+        <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '16px', marginBottom: '20px' }}>
+          <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, display: 'block', marginBottom: '10px' }}>AVAILABLE LIFECYCLE STAGES MODULES:</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            {pool.map(id => {
+              const item = PIPELINE_STEPS.find(s => s.id === id)!;
+              const isSelected = selectedPoolId === id;
               return (
                 <button
-                  key={obj.label}
-                  type="button"
-                  onClick={() => handleTapObject(obj.label)}
+                  key={id}
+                  onClick={() => { playSound('click'); setSelectedPoolId(isSelected ? null : id); }}
                   style={{
-                    padding: 12,
-                    borderRadius: 8,
-                    background: status === 'correct' ? 'rgba(94, 252, 130, 0.15)' : 'rgba(75, 155, 255, 0.1)',
-                    border: status === 'correct' ? '2px solid rgba(94, 252, 130, 0.8)' : status === 'wrong' ? '2px solid rgba(255, 100, 100, 0.8)' : '1px solid rgba(75, 155, 255, 0.3)',
-                    cursor: scanComplete ? 'default' : 'pointer',
-                    opacity: scanComplete && status !== 'correct' ? 0.5 : 1,
-                    transition: 'all 200ms ease',
-                    textAlign: 'center',
+                    ...choiceBtn,
+                    flex: '1 1 120px',
+                    borderColor: isSelected ? '#fff' : 'rgba(255,255,255,0.1)',
+                    backgroundColor: isSelected ? 'rgba(75,155,255,0.2)' : 'rgba(255,255,255,0.04)',
+                    boxShadow: isSelected ? '0 0 8px rgba(75,155,255,0.4)' : 'none',
                   }}
-                  disabled={scanComplete}
                 >
-                  <div style={{ fontSize: '2rem' }}>{obj.icon}</div>
-                  <div style={{ fontSize: '0.9rem', marginTop: 4 }}>{obj.label}</div>
-                  {status === 'correct' && <div style={{ marginTop: 4 }}>✅</div>}
-                  {status === 'wrong' && <div style={{ marginTop: 4 }}>❌</div>}
+                  <span>{item.emoji} {item.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
+      )}
 
-        {scanComplete && (
-          <div style={{
-            marginTop: 16,
-            padding: 12,
-            background: 'rgba(94, 252, 130, 0.2)',
-            border: '2px solid rgba(94, 252, 130, 0.6)',
-            borderRadius: 8,
-            textAlign: 'center',
-            animation: 'slideInRight 400ms ease',
-          }}>
-            <h3 className="h2" style={{ margin: 0 }}>🎯 SCAN COMPLETE</h3>
-          </div>
-        )}
-      </div>
-
-      <div className="card">
-        <p className="small-note">{correctCount} / {livingThings.length} living creatures detected</p>
-        <div className="core-meter">
-          <div className="core-fill" style={{ width: `${(correctCount / livingThings.length) * 100}%` }} />
-        </div>
-        <p className={`status-chip ${scanComplete ? 'success-state' : ''}`}>
-          {scanComplete ? 'Vision scan complete! AI sees the living things.' : 'Tap all living creatures to scan the scene.'}
-        </p>
-        <button
-          className="button-primary"
-          onClick={() => {
-            if (scanComplete) {
-              if (reviewOpen) {
-                onComplete();
-              } else {
-                setReviewOpen(true);
-              }
-            } else if (allCorrect) {
-              handleScanComplete();
-            } else {
-              playSound('error');
-            }
-          }}
-        >
-          {scanComplete ? (reviewOpen ? 'Proceed to next district' : 'Lock Scan') : 'Complete Mission'}
+      {!isValidated ? (
+        <button style={{ ...primaryBtn, width: '100%' }} onClick={verifyPipeline}>
+          Engage Factory Pipeline Systems
         </button>
-      </div>
-
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
-      />
-    </div>
-  );
-}
-
-function LanguageHarborSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'languageHarbor')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedMatch, setSelectedMatch] = useState<string>('');
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [robotShaking, setRobotShaking] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-
-  const currentPair = languagePairs[currentIndex];
-  const allLanguagePairs = languagePairs;
-  
-  // Create 4 options: 1 correct + 3 random distractors (useMemo so options don't reshuffle on rerenders)
-  const options = useMemo(() => {
-    const correct = currentPair.match;
-    const others = allLanguagePairs.filter((_, i) => i !== currentIndex).map((p) => p.match);
-    const distractors = [...others].sort(() => Math.random() - 0.5).slice(0, 3);
-    return [correct, ...distractors].sort(() => Math.random() - 0.5);
-  }, [currentIndex]);
-
-  const handleSelect = (match: string) => {
-    playSound('click');
-    setSelectedMatch(match);
-  };
-
-  const handleCheck = () => {
-    if (!selectedMatch) return;
-    
-    const correct = selectedMatch === currentPair.match;
-    setIsCorrect(correct);
-    playSound(correct ? 'success' : 'error');
-    
-    if (!correct) {
-      setRobotShaking(true);
-      setTimeout(() => setRobotShaking(false), 600);
-    } else {
-      // Move to next pair or finish
-      if (currentIndex < languagePairs.length - 1) {
-        setTimeout(() => {
-          setCurrentIndex((prev) => prev + 1);
-          setSelectedMatch('');
-          setIsCorrect(null);
-        }, 800);
-      } else {
-        setTimeout(() => setReviewOpen(true), 800);
-      }
-    }
-  };
-
-  const progressDots = Array.from({ length: languagePairs.length }, (_, i) => i < currentIndex || (currentIndex === i && isCorrect) ? '●' : '○').join('');
-
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        'Welcome to Language Harbor — where ships of words arrive from all over the world!',
-        "Our translation robot has been scrambled. It's mixing up meanings.",
-        "Help it learn! I'll show you a phrase — pick the correct meaning from four options.",
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
-  return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Progress</p>
-        <div style={{ fontSize: '1.8rem', letterSpacing: '0.2em', textAlign: 'center' }}>{progressDots}</div>
-      </div>
-
-      <div className="card">
-        <p className="metric-label">Robot Translation Duel</p>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 20,
-          marginTop: 16,
-        }}>
-          <div style={{
-            fontSize: isCorrect === true ? '3rem' : '3rem',
-            animation: robotShaking ? 'shake 400ms ease' : 'none',
-            textAlign: 'center',
-          }}>
-            {isCorrect === true ? '🤖✅' : isCorrect === false ? '🤖❌' : '🤖'}
-          </div>
-          
-          <div style={{
-            flex: 1,
-            background: isCorrect === true ? 'rgba(94, 252, 130, 0.15)' : isCorrect === false ? 'rgba(255, 100, 100, 0.15)' : 'rgba(75, 155, 255, 0.15)',
-            border: isCorrect === true ? '2px solid rgba(94, 252, 130, 0.6)' : isCorrect === false ? '2px solid rgba(255, 100, 100, 0.6)' : '2px solid rgba(75, 155, 255, 0.6)',
-            borderRadius: 12,
-            padding: 16,
-            position: 'relative',
-          }}>
-            <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-              {currentPair.phrase}
-            </div>
-            {isCorrect === true && (
-              <div style={{ marginTop: 8, color: '#5efca2', fontSize: '0.9rem' }}>
-                ✓ Processing complete! I learned that.
-              </div>
-            )}
-            {isCorrect === false && (
-              <div style={{ marginTop: 8, color: '#ff6464', fontSize: '0.9rem' }}>
-                ✗ Error! That doesn't match my training data.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div style={{ marginTop: 20 }}>
-          <p className="small-note">Select the best translation:</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 12 }}>
-            {options.map((choice) => (
-              <button
-                key={choice}
-                type="button"
-                className={`small-button${selectedMatch === choice ? ' selected' : ''}`}
-                onClick={() => handleSelect(choice)}
-                disabled={isCorrect !== null}
-                style={{
-                  opacity: isCorrect !== null && selectedMatch !== choice ? 0.5 : 1,
-                }}
-              >
-                {choice}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="card">
-        <button
-          className="button-primary"
-          onClick={handleCheck}
-          disabled={!selectedMatch || isCorrect !== null}
-        >
-          {currentIndex >= languagePairs.length - 1 && isCorrect === true ? 'Finish Harbor' : 'Check Answer'}
-        </button>
-      </div>
-
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
-      />
-    </div>
-  );
-}
-
-function PredictionLabSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'predictionLab')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const [choice, setChoice] = useState<string>('');
-  const [result, setResult] = useState<string>('');
-  const [showAiSuggestion, setShowAiSuggestion] = useState(false);
-
-  const correctTemp = '30°C';
-  const chartWidth = 320;
-  const chartHeight = 200;
-  const padding = 40;
-  const graphWidth = chartWidth - padding * 2;
-  const graphHeight = chartHeight - padding * 2;
-
-  const minTemp = 20;
-  const maxTemp = 35;
-  const tempRange = maxTemp - minTemp;
-
-  const pointData = predictionHistory.map((day, i) => {
-    const x = padding + (i / (predictionHistory.length - 1)) * graphWidth;
-    const y = padding + graphHeight - ((day.temp - minTemp) / tempRange) * graphHeight;
-    return { x, y, temp: day.temp, day: day.day };
-  });
-
-  const polylinePoints = pointData.map((p) => `${p.x},${p.y}`).join(' ');
-
-  const drawPredictionLine = (tempChoice: string) => {
-    if (!tempChoice || !pointData.length) return '';
-    const choiceNum = parseInt(tempChoice);
-    const lastPoint = pointData[pointData.length - 1];
-    const nextX = padding + graphWidth + 30;
-    const nextY = padding + graphHeight - ((choiceNum - minTemp) / tempRange) * graphHeight;
-    return `${lastPoint.x},${lastPoint.y} ${nextX},${nextY}`;
-  };
-
-  const handlePredict = () => {
-    if (!choice) return;
-    if (choice === correctTemp) {
-      setResult('✅ Correct! The AI predicted 30°C based on the rising trend.');
-      playSound('success');
-      setShowAiSuggestion(false);
-      setTimeout(() => {
-        onComplete();
-      }, 1200);
-    } else {
-      setResult("🤖 The AI predicts 30°C based on the pattern. Here's why: the temperature has been rising each day.");
-      playSound('error');
-      setShowAiSuggestion(true);
-    }
-  };
-
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        'The weather tower is offline! Without temperature predictions, NeoCity will overheat.',
-        "Look at this week's temperature chart carefully. Can you spot the pattern?",
-        'Once you see it — make your prediction. Then see if the AI agrees!',
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
-  return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Weather History</p>
-        <svg width={chartWidth} height={chartHeight} style={{ border: '1px solid rgba(75, 155, 255, 0.3)', borderRadius: 8, background: 'rgba(10, 30, 80, 0.2)' }}>
-          {/* Grid lines */}
-          {[0, 1, 2, 3, 4].map((i) => (
-            <line
-              key={`hline-${i}`}
-              x1={padding}
-              y1={padding + (i / 4) * graphHeight}
-              x2={chartWidth - padding}
-              y2={padding + (i / 4) * graphHeight}
-              stroke="rgba(75, 155, 255, 0.1)"
-              strokeWidth="1"
-              strokeDasharray="3,3"
-            />
-          ))}
-          
-          {/* Historical data line */}
-          <polyline
-            points={polylinePoints}
-            fill="none"
-            stroke="rgba(75, 155, 255, 0.8)"
-            strokeWidth="2"
-          />
-          
-          {/* Data points */}
-          {pointData.map((p, i) => (
-            <g key={`point-${i}`}>
-              <circle cx={p.x} cy={p.y} r="4" fill="rgba(75, 155, 255, 0.8)" />
-              <text x={p.x} y={chartHeight - 8} textAnchor="middle" fontSize="12" fill="rgba(169, 192, 221, 0.8)">
-                {p.day}
-              </text>
-            </g>
-          ))}
-
-          {/* Prediction line (dashed) */}
-          {choice && (
-            <polyline
-              points={drawPredictionLine(choice)}
-              fill="none"
-              stroke={choice === correctTemp ? 'rgba(94, 252, 130, 0.6)' : 'rgba(255, 150, 80, 0.6)'}
-              strokeWidth="2"
-              strokeDasharray="5,5"
-              style={{ animation: choice ? 'dashMove 900ms linear forwards' : 'none' }}
-            />
-          )}
-
-          {/* Y-axis label */}
-          <text x="15" y={padding + 10} fontSize="12" fill="rgba(169, 192, 221, 0.8)">
-            35°C
-          </text>
-          <text x="15" y={chartHeight - 10} fontSize="12" fill="rgba(169, 192, 221, 0.8)">
-            20°C
-          </text>
-        </svg>
-      </div>
-
-      <div className="card">
-        <p className="metric-label">Predict Tomorrow's Temperature</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {['28°C', '30°C', '32°C'].map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`small-button${choice === option ? ' selected' : ''}`}
-              onClick={() => {
-                setChoice(option);
-                setResult('');
-                playSound('click');
-              }}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="card">
-        <p className={`status-chip ${result.includes('✅') ? 'success-state' : result ? '' : ''}`}>
-          {result || 'Look at the trend and predict tomorrow\'s temperature!'}
-        </p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="button-primary" onClick={handlePredict} disabled={!choice}>
-            Confirm Prediction
+      ) : (
+        <div style={{ textAlign: 'center', animation: 'celebrate 0.5s' }}>
+          <p style={{ fontSize: '0.85rem', color: COLORS.success, marginBottom: '16px' }}>
+            ✅ Sequence synchronized! This structured lifecycle governs enterprise deployments from autonomous shipping grids to advanced medical AI diagnostics.
+          </p>
+          <button style={primaryBtn} onClick={() => onComplete()}>
+            Proceed to Final Core Nexus →
           </button>
-          {showAiSuggestion && (
-            <button
-              className="small-button"
-              onClick={() => {
-                playSound('power');
-                setResult('✅ Accepted AI suggestion: 30°C. Proceeding...');
-                setTimeout(() => onComplete(), 800);
-              }}
-            >
-              Accept AI suggestion
-            </button>
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-function ClassificationFactorySection({ onComplete }: { onComplete: () => void }) {
-  const [placed, setPlaced] = useState<PlacementMap>({});
+// ============================================================================
+// SECTION 10: FINAL CORE RESTORATION & BOSS BATTLE
+// ============================================================================
+interface BossQuestion { q: string; options: string[]; correctIdx: number; }
+const BOSS_QUESTIONS: BossQuestion[] = [
+  { q: "Which core paradigm learns trends dynamically from historical tracking files instead of hardcoded rules?", options: ["Artificial Intelligence", "Mechanical Thermostat Controllers", "Fixed Matrix Calculators"], correctIdx: 0 },
+  { q: "What classification methodology isolates unstructured photos cleanly from tabular arrays?", options: ["Linear Regression Slopes", "Computer Vision & NLP Data Typing", "Conventional Hardware Alarms"], correctIdx: 1 },
+  { q: "What does human labeling provide to an initialized model workspace?", options: ["Processor Clock Cycles", "Structured Training Datasets", "Raw Network Bandwidth"], correctIdx: 1 },
+  { q: "Swiggy uses which algorithm structure to predict continuous shipment timelines?", options: ["Unsupervised Clustering Matrices", "Linear Regression", "Categorical Language Filtering"], correctIdx: 1 },
+  { q: "What stage directly succeeds Data Collection within an automated engineering workflow?", options: ["Immediate Model Evaluation", "Data Cleaning & Preparation", "Live Server Core Deployment"], correctIdx: 1 },
+];
+
+function FinalMissionSection({ onComplete }: { onComplete: () => void }) {
   const [gateOpen, setGateOpen] = useState(false);
-  const categories = ['Fruit', 'Animal', 'Vehicle'];
-  const [queueIndex, setQueueIndex] = useState(0);
-  const [status, setStatus] = useState('Items move on the conveyor. Sort each one as it appears.');
+  
+  // Sequence tracker: 'MINI_GAMES' -> 'BOSS_BATTLE'
+  const [subStage, setSubStage] = useState<'MINI_GAMES' | 'BOSS_BATTLE'>('MINI_GAMES');
+  const [miniStep, setMiniStep] = useState(0);
 
-  const currentCard = classificationCards[queueIndex];
+  // Boss state
+  const [bossIdx, setBossIdx] = useState(0);
+  const [coreHealth, setCoreHealth] = useState(100);
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [bossShake, setBossShake] = useState(false);
 
-  const handlePlaceCurrent = (category: string) => {
-    if (!currentCard) return;
-    setPlaced((prev) => ({ ...prev, [currentCard.label]: category }));
-    playSound('drop');
-    // advance conveyor after short delay
-    setTimeout(() => {
-      if (queueIndex < classificationCards.length - 1) {
-        setQueueIndex((i) => i + 1);
-      } else {
-        // All placed: check correctness
-        const correct = classificationCards.every((card) => placed[card.label] === card.category || card.label === currentCard.label && category === card.category);
-        if (correct) {
-          playSound('success');
-          onComplete();
-        } else {
-          setStatus('Some items were sorted incorrectly. Review and try again.');
+  // Strict declarations of all functional hooks before gate escape early return triggers
+  useEffect(() => {
+    if (!gateOpen || subStage !== 'BOSS_BATTLE' || bossIdx >= BOSS_QUESTIONS.length) return;
+    
+    setTimeLeft(15);
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
           playSound('error');
+          setCoreHealth(h => Math.max(0, h - 20));
+          setBossIdx(b => b + 1);
+          return 15;
         }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [gateOpen, subStage, bossIdx]);
+
+  if (!gateOpen) {
+    return (
+      <NovaGate
+        lines={[
+          "ALERT: Reached Core Omega Node, District 10.",
+          "The main mainframe core is fluctuating wildly. Complete the 4 rapid hardware overrides to stabilize backup containment arrays, then prepare to override the AI mainframe firewall safeguards!",
+        ]}
+        onDone={() => setGateOpen(true)}
+      />
+    );
+  }
+
+  // --- SUBSTAGE 1: 4 QUICK CHALLENGES ---
+  const handleMiniChallenge = (isCorrect: boolean) => {
+    if (isCorrect) {
+      playSound('success');
+      if (miniStep < 3) {
+        setMiniStep(p => p + 1);
+      } else {
+        setSubStage('BOSS_BATTLE');
       }
-    }, 420);
+    } else {
+      playSound('error');
+    }
   };
 
-  const placedCount = Object.keys(placed).length + (currentCard && placed[currentCard.label] ? 0 : 0);
+  // --- SUBSTAGE 2: BOSS FIREWALL OVERRIDE ---
+  const handleBossAnswer = (selectedIdx: number) => {
+    const currentQuestion = BOSS_QUESTIONS[bossIdx];
+    if (selectedIdx === currentQuestion.correctIdx) {
+      playSound('success');
+    } else {
+      playSound('error');
+      setCoreHealth(h => Math.max(0, h - 20));
+      setBossShake(true);
+      setTimeout(() => setBossShake(false), 500);
+    }
+    
+    if (bossIdx < BOSS_QUESTIONS.length - 1) {
+      setBossIdx(p => p + 1);
+      setTimeLeft(15);
+    } else {
+      // Trigger full experience callback
+      onComplete();
+    }
+  };
 
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        "The NeoCity sorting factory has broken down. Items are piling up on the conveyor belt!",
-        "Your job: tap an item, then tap the correct bin. Fruits, Animals, or Vehicles.",
-        'The factory robot is watching — it will learn YOUR sorting rule!',
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
   return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Conveyor Belt</p>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 140 }}>
-          {currentCard ? (
-            <div className="draggable-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontSize: '1.4rem' }}>{currentCard.icon}</div>
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 700 }}>{currentCard.label}</div>
-                <div className="small-note">Tap a bin to place this item</div>
-              </div>
-            </div>
-          ) : (
-            <div className="small-note">No more items on the belt.</div>
-          )}
-        </div>
-      </div>
-
-      <div className="grid-3">
-        {categories.map((category) => (
-          <div key={category} className="drop-zone" onClick={() => handlePlaceCurrent(category)}>
-            <h3 className="h2">{category}</h3>
-            <p className="small-note">Tap to place current item</p>
-            <div className="small-note">{Object.entries(placed).filter(([, value]) => value === category).map(([label]) => label).join(', ')}</div>
-          </div>
+    <div style={cardStyle}>
+      <h2 style={{ color: '#ff4b4b', margin: '0 0 4px 0' }}>🚨 FINAL MISSION: Core Nexus Terminal</h2>
+      
+      {/* Visual Status Indicator Rings Tracker */}
+      <div style={{ display: 'flex', gap: '10px', margin: '16px 0' }}>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} style={{ flex: 1, height: '10px', borderRadius: '5px', backgroundColor: (subStage === 'BOSS_BATTLE' || miniStep > i) ? COLORS.success : '#551a1a', transition: 'all 0.3s' }} />
         ))}
       </div>
 
-      <div className="card">
-        <p className={`status-chip`}>{status}</p>
-        <p className="small-note">{Object.keys(placed).length} / {classificationCards.length} sorted</p>
-      </div>
-    </div>
-  );
-}
-
-function RegressionObservatorySection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'regressionObservatory')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const [hours, setHours] = useState(3);
-  const [sleep, setSleep] = useState(4);
-  const [locked, setLocked] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-
-  const predicted = 30 + hours * 4 + sleep * 2;
-
-  const scatterData = [
-    { hours: 1, marks: 38 },
-    { hours: 2, marks: 42 },
-    { hours: 3, marks: 50 },
-    { hours: 4, marks: 56 },
-    { hours: 5, marks: 64 },
-    { hours: 6, marks: 72 },
-    { hours: 7, marks: 78 },
-    { hours: 8, marks: 84 },
-  ];
-
-  const chartWidth = 300;
-  const chartHeight = 220;
-  const padding = 40;
-  const graphWidth = chartWidth - padding * 2;
-  const graphHeight = chartHeight - padding * 2;
-
-  const minHours = 0;
-  const maxHours = 9;
-  const minMarks = 30;
-  const maxMarks = 90;
-
-  const scaleX = graphWidth / (maxHours - minHours);
-  const scaleY = graphHeight / (maxMarks - minMarks);
-
-  const regressionLine = {
-    x1: padding + (1 - minHours) * scaleX,
-    y1: padding + graphHeight - (38 - minMarks) * scaleY,
-    x2: padding + (8 - minHours) * scaleX,
-    y2: padding + graphHeight - (84 - minMarks) * scaleY,
-  };
-
-  const predictionPointX = padding + (hours - minHours) * scaleX;
-  const predictionPointY = padding + graphHeight - ((predicted - minMarks) / (maxMarks - minMarks)) * graphHeight;
-
-  const handleSubmit = () => {
-    setLocked(true);
-    playSound('success');
-    setTimeout(() => setReviewOpen(true), 600);
-  };
-
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        "The Observatory tracks how study habits affect exam marks.",
-        "Drag the sliders to change study hours and sleep. Watch how the AI's prediction changes — live on the chart!",
-        'This is Regression: the AI predicts a NUMBER, not just a category.',
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
-  return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Study Hours vs Marks (SVG Chart)</p>
-        <svg width={chartWidth} height={chartHeight} style={{ border: '1px solid rgba(75, 155, 255, 0.3)', borderRadius: 8, background: 'rgba(10, 30, 80, 0.2)' }}>
-          {/* Grid lines */}
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <line
-              key={`hline-${i}`}
-              x1={padding}
-              y1={padding + (i / 5) * graphHeight}
-              x2={chartWidth - padding}
-              y2={padding + (i / 5) * graphHeight}
-              stroke="rgba(75, 155, 255, 0.1)"
-              strokeWidth="1"
-              strokeDasharray="3,3"
-            />
-          ))}
-
-          {/* Regression line */}
-          <line
-            x1={regressionLine.x1}
-            y1={regressionLine.y1}
-            x2={regressionLine.x2}
-            y2={regressionLine.y2}
-            stroke={locked ? 'rgba(94, 252, 130, 0.8)' : 'rgba(75, 155, 255, 0.5)'}
-            strokeWidth="2"
-            opacity={locked ? 1 : 0.4}
-            style={{ transition: 'all 400ms ease' }}
-          />
-
-          {/* Data points */}
-          {scatterData.map((point, i) => {
-            const px = padding + (point.hours - minHours) * scaleX;
-            const py = padding + graphHeight - ((point.marks - minMarks) / (maxMarks - minMarks)) * graphHeight;
-            return (
-              <circle key={`point-${i}`} cx={px} cy={py} r="3" fill="rgba(75, 155, 255, 0.8)" />
-            );
-          })}
-
-          {/* Prediction point */}
-          {!locked && (
-            <circle cx={predictionPointX} cy={predictionPointY} r="5" fill="rgba(255, 150, 80, 0.8)" style={{ filter: 'drop-shadow(0 0 4px rgba(255, 150, 80, 0.8))' }} />
-          )}
-          {locked && (
-            <circle cx={predictionPointX} cy={predictionPointY} r="5" fill="rgba(94, 252, 130, 0.8)" style={{ filter: 'drop-shadow(0 0 4px rgba(94, 252, 130, 0.8))' }} />
+      {subStage === 'MINI_GAMES' ? (
+        <div>
+          {miniStep === 0 && (
+            <div style={{ animation: 'slideInRight 0.3s' }}>
+              <h3 style={{ color: COLORS.accent }}>Override 1: Data Type Routing</h3>
+              <p style={{ color: COLORS.textSecondary }}>A streaming telemetry array tracking real-time weather logs belongs to which storage core format profile?</p>
+              <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
+                <button style={choiceBtn} onClick={() => handleMiniChallenge(false)}>🗂️ Standard Tabular Structured Matrix</button>
+                <button style={choiceBtn} onClick={() => handleMiniChallenge(true)}>⏱️ Continuous Time-Series Vector Pipeline</button>
+                <button style={choiceBtn} onClick={() => handleMiniChallenge(false)}>🗺️ Static Geographic Spatial Coordinate Coordinates</button>
+              </div>
+            </div>
           )}
 
-          {/* Axes */}
-          <line x1={padding} y1={padding + graphHeight} x2={chartWidth - padding} y2={padding + graphHeight} stroke="rgba(75, 155, 255, 0.4)" strokeWidth="1" />
-          <line x1={padding} y1={padding} x2={padding} y2={padding + graphHeight} stroke="rgba(75, 155, 255, 0.4)" strokeWidth="1" />
-
-          {/* Labels */}
-          <text x={padding - 30} y={padding + 10} fontSize="11" fill="rgba(169, 192, 221, 0.8)">90</text>
-          <text x={padding - 30} y={padding + graphHeight + 5} fontSize="11" fill="rgba(169, 192, 221, 0.8)">30</text>
-          <text x={chartWidth - 20} y={padding + graphHeight + 15} fontSize="11" fill="rgba(169, 192, 221, 0.8)">8h</text>
-        </svg>
-      </div>
-
-      <div className="card">
-        <p className="metric-label">Study Hours</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <input
-            type="range"
-            min="1"
-            max="8"
-            value={hours}
-            onChange={(e) => {
-              if (!locked) setHours(Number(e.target.value));
-              playSound('power');
-            }}
-            style={{ flex: 1 }}
-          />
-          <div style={{ minWidth: 40, textAlign: 'right', fontWeight: 600 }}>{hours}h</div>
-        </div>
-      </div>
-
-      <div className="card">
-        <p className="metric-label">Good Sleep Days</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <input
-            type="range"
-            min="1"
-            max="7"
-            value={sleep}
-            onChange={(e) => {
-              if (!locked) setSleep(Number(e.target.value));
-              playSound('power');
-            }}
-            style={{ flex: 1 }}
-          />
-          <div style={{ minWidth: 40, textAlign: 'right', fontWeight: 600 }}>{sleep} days</div>
-        </div>
-      </div>
-
-      <div className="card">
-        <p className="metric-label">Predicted Marks</p>
-        <div style={{ fontSize: '2rem', fontWeight: 600, textAlign: 'center', padding: '16px 0', color: locked ? '#5efca2' : '#ff9650' }}>
-          📍 {predicted}
-        </div>
-        <p className="small-note">Formula: 30 + (hours × 4) + (sleep × 2)</p>
-      </div>
-
-      <div className="card">
-        <p className="metric-label">Live Insight</p>
-        <InsightCard hours={hours} sleep={sleep} predicted={predicted} locked={locked} />
-      </div>
-
-      <div className="card">
-        <button
-          className="button-primary"
-          onClick={() => {
-            if (!locked) {
-              handleSubmit();
-            } else if (reviewOpen) {
-              onComplete();
-            }
-          }}
-        >
-          {locked ? (reviewOpen ? 'Proceed to next district' : 'Analyze Regression') : 'Submit Prediction 🔒'}
-        </button>
-      </div>
-
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
-      />
-    </div>
-  );
-}
-
-function ClusteringForestSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'clusteringForest')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const [placed, setPlaced] = useState<PlacementMap>({});
-  const [selected, setSelected] = useState<string | null>(null);
-  const [reviewOpen, setReviewOpen] = useState(false);
-
-  const forestItems = [
-    { id: 'f1', emoji: '🔺', x: 50,  y: 60,  cluster: 'shapes' },
-    { id: 'f2', emoji: '⬛', x: 80,  y: 40,  cluster: 'shapes' },
-    { id: 'f3', emoji: '🔵', x: 110, y: 80,  cluster: 'shapes' },
-    { id: 'f4', emoji: '🐱', x: 180, y: 50,  cluster: 'animals' },
-    { id: 'f5', emoji: '🐶', x: 220, y: 80,  cluster: 'animals' },
-    { id: 'f6', emoji: '🦊', x: 200, y: 110, cluster: 'animals' },
-    { id: 'f7', emoji: '📦', x: 60,  y: 200, cluster: 'objects' },
-    { id: 'f8', emoji: '🪑', x: 100, y: 220, cluster: 'objects' },
-    { id: 'f9', emoji: '🎒', x: 140, y: 190, cluster: 'objects' },
-  ];
-
-  const clusters = [
-    { id: 'shapes', label: 'Red Camp', color: '#ff6464' },
-    { id: 'animals', label: 'Green Camp', color: '#5efca2' },
-    { id: 'objects', label: 'Blue Camp', color: '#4b9bff' },
-  ];
-
-  const canvasSize = 280;
-
-  const handleSelectDot = (itemId: string) => {
-    setSelected(itemId);
-    playSound('click');
-  };
-
-  const handlePlaceDot = (clusterId: string) => {
-    if (!selected) return;
-    setPlaced((prev) => ({ ...prev, [selected]: clusterId }));
-    setSelected(null);
-    playSound('drop');
-  };
-
-  const correct = forestItems.every((item) => placed[item.id] === item.cluster);
-  const allPlaced = forestItems.every((item) => !!placed[item.id]);
-
-  const handleComplete = () => {
-    if (correct && allPlaced) {
-      setReviewOpen(true);
-      playSound('success');
-    }
-  };
-
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        'Deep in the NeoCity Forest, strange creatures and objects have appeared — all mixed up!',
-        'No one told you what the groups are. You have to figure out the pattern yourself.',
-        'Tap a dot on the map, then tap a colour camp to assign it. Trust your instincts!',
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
-  return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Forest Map (SVG)</p>
-        <svg
-          width={canvasSize}
-          height={canvasSize}
-          style={{
-            border: '2px solid rgba(75, 155, 255, 0.4)',
-            borderRadius: 8,
-            background: 'rgba(10, 30, 80, 0.2)',
-            cursor: 'pointer',
-          }}
-        >
-          {forestItems.map((item) => {
-            const pos = { x: item.x, y: item.y };
-            const clusterColor = placed[item.id]
-              ? clusters.find((c) => c.id === placed[item.id])?.color || 'rgba(100, 100, 100, 0.5)'
-              : 'rgba(200, 200, 200, 0.12)';
-            const isSelected = selected === item.id;
-
-            return (
-              <g key={item.id} onClick={() => handleSelectDot(item.id)}>
-                <circle
-                  cx={pos.x}
-                  cy={pos.y}
-                  r={isSelected ? 16 : 12}
-                  fill={clusterColor}
-                  style={{
-                    cursor: 'pointer',
-                    transition: 'all 200ms ease',
-                    filter: isSelected ? 'drop-shadow(0 0 8px rgba(75, 155, 255, 0.8))' : 'none',
-                    animation: isSelected ? 'pulseRing 1.2s ease-out' : 'none',
-                  }}
-                />
-                <text
-                  x={pos.x}
-                  y={pos.y}
-                  textAnchor="middle"
-                  dy="0.3em"
-                  fontSize="16"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  {item.emoji}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-
-      <div className="card">
-        <p className="metric-label">Cluster Zones</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {clusters.map((cluster) => {
-            const itemsInCluster = forestItems.filter((i) => placed[i.id] === cluster.id);
-            return (
-              <button
-                key={cluster.id}
-                type="button"
-                onClick={() => handlePlaceDot(cluster.id)}
-                style={{
-                  padding: 12,
-                  borderRadius: 8,
-                  border: `2px solid ${cluster.color}`,
-                  background: `${cluster.color}20`,
-                  cursor: selected ? 'pointer' : 'default',
-                  opacity: selected ? 1 : 0.6,
-                  transition: 'all 200ms ease',
-                }}
-              >
-                <div style={{ fontSize: '1.2rem' }}>{cluster.label}</div>
-                <div className="small-note">{itemsInCluster.length} items</div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="card">
-        <p className="small-note">{Object.keys(placed).length} / {forestItems.length} items clustered</p>
-        <div className="core-meter">
-          <div className="core-fill" style={{ width: `${(Object.keys(placed).length / forestItems.length) * 100}%` }} />
-        </div>
-        <p className={`status-chip ${correct && allPlaced ? 'success-state' : ''}`}>
-          {correct && allPlaced ? 'Clustering complete! Groups revealed.' : 'Tap dots and assign to clusters.'}
-        </p>
-        <button className="button-primary" onClick={() => {
-          if (reviewOpen) {
-            onComplete();
-          } else {
-            handleComplete();
-          }
-        }} disabled={!correct || !allPlaced}>
-          {reviewOpen ? 'Proceed to next district' : 'Complete Mission'}
-        </button>
-      </div>
-
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
-      />
-    </div>
-  );
-}
-
-// canvasPositions removed per prompt; ClusteringForest uses hardcoded forestItems
-
-function DatasetVaultSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'datasetVault')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [unlockedRings, setUnlockedRings] = useState<boolean[]>([false, false, false, false]);
-  const [shaking, setShaking] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-
-  const vaultCodes = [
-    { example: 'A table of student names and marks', correct: 'Structured' },
-    { example: 'A bunch of photos from Instagram', correct: 'Unstructured' },
-    { example: 'Temperature readings every hour for 30 days', correct: 'Time-Series' },
-    { example: 'Map coordinates of cities', correct: 'Spatial' },
-  ];
-
-  const dialOptions = [
-    { icon: '🗂️', label: 'Structured' },
-    { icon: '🌊', label: 'Unstructured' },
-    { icon: '⏱️', label: 'Time-Series' },
-    { icon: '🗺️', label: 'Spatial' },
-  ];
-
-  const currentCode = vaultCodes[currentIndex];
-  const allUnlocked = unlockedRings.every((r) => r);
-
-  const handleDial = (typeLabel: string) => {
-    if (unlockedRings[currentIndex]) return; // Already unlocked
-    const isCorrect = typeLabel === currentCode.correct;
-    playSound(isCorrect ? 'drop' : 'error');
-
-    if (isCorrect) {
-      setUnlockedRings((prev) => {
-        const updated = [...prev];
-        updated[currentIndex] = true;
-        return updated;
-      });
-
-      if (currentIndex < vaultCodes.length - 1) {
-        setTimeout(() => setCurrentIndex((prev) => prev + 1), 600);
-      } else {
-        setTimeout(() => setReviewOpen(true), 600);
-      }
-    } else {
-      setShaking(true);
-      setTimeout(() => setShaking(false), 600);
-    }
-  };
-
-  const vaultDiameters = [120, 90, 60, 30];
-
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        "The Dataset Vault holds NeoCity's most valuable data — but it's locked!",
-        'Four combination locks, each with a riddle. Crack the code by identifying the data type.',
-        "Crack all four and the vault swings open. Let's crack it!",
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
-  return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Dataset Code</p>
-        <h3 className="h2" style={{ marginTop: 16 }}>{currentCode.example}</h3>
-        <p className="small-note">Code {currentIndex + 1} of {vaultCodes.length}</p>
-      </div>
-
-      <div className="card" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 280 }}>
-        <svg
-          width={160}
-          height={160}
-          style={{
-            filter: shaking ? 'drop-shadow(0 0 10px rgba(255, 100, 100, 0.8))' : 'drop-shadow(0 0 5px rgba(75, 155, 255, 0.4))',
-            animation: shaking ? 'shake 600ms ease' : 'none',
-          }}
-        >
-          {/* Vault rings */}
-          {vaultDiameters.map((diameter, i) => (
-            <circle
-              key={`ring-${i}`}
-              cx="80"
-              cy="80"
-              r={diameter / 2}
-              fill="none"
-              stroke={unlockedRings[i] ? 'rgba(94, 252, 130, 0.6)' : 'rgba(75, 155, 255, 0.4)'}
-              strokeWidth="2"
-              className={unlockedRings[i] ? 'vault-rotating vault-unlocked' : 'vault-rotating'}
-              style={{ transition: 'stroke 400ms ease', transformOrigin: '80px 80px' }}
-            />
-          ))}
-          {/* Center dot */}
-          <circle cx="80" cy="80" r="3" fill="rgba(75, 155, 255, 0.8)" />
-        </svg>
-      </div>
-
-      <div className="card">
-        <p className="metric-label">Dial Options</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-          {dialOptions.map((option) => (
-            <button
-              key={option.label}
-              type="button"
-              className="small-button"
-              onClick={() => handleDial(option.label)}
-              style={{
-                opacity: unlockedRings[currentIndex] ? 0.5 : 1,
-                cursor: unlockedRings[currentIndex] ? 'default' : 'pointer',
-              }}
-              disabled={unlockedRings[currentIndex]}
-            >
-              <div style={{ fontSize: '1.2rem' }}>{option.icon}</div>
-              <div>{option.label}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="card">
-        <p className="small-note">{unlockedRings.filter((r) => r).length} / {vaultCodes.length} rings unlocked</p>
-        <div className="core-meter">
-          <div className="core-fill" style={{ width: `${(unlockedRings.filter((r) => r).length / vaultCodes.length) * 100}%` }} />
-        </div>
-        <button
-          className="button-primary"
-          onClick={() => {
-            if (reviewOpen) {
-              onComplete();
-            }
-          }}
-          disabled={!reviewOpen}
-        >
-          {reviewOpen ? 'Proceed to next district' : 'Keep Cracking'}
-        </button>
-      </div>
-
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
-      />
-    </div>
-  );
-}
-
-function DataTypeSortSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'dataTypeSort')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const [assigned, setAssigned] = useState<PlacementMap>({});
-  const [selected, setSelected] = useState<string | null>(null);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const groups = [
-    { id: 'Structured', emoji: '🗂️', label: 'Structured', hint: 'Organized in rows and columns', color: 'rgba(75,155,255,0.9)', bg: 'rgba(75,155,255,0.08)' },
-    { id: 'Unstructured', emoji: '🌊', label: 'Unstructured', hint: 'No fixed format', color: 'rgba(150,75,255,0.9)', bg: 'rgba(150,75,255,0.08)' },
-  ];
-
-  const handleDrop = (group: string) => {
-    if (!selected) return;
-    const card = structureExamples.find((item) => item.label === selected);
-    if (card) {
-      setAssigned((prev) => ({ ...prev, [card.label]: group }));
-      playSound('drop');
-    }
-    setSelected(null);
-  };
-
-  const correct = structureExamples.every((example) => assigned[example.label] === example.type);
-  const completed = Object.keys(assigned).length === structureExamples.length && correct;
-
-  const handleComplete = () => {
-    if (completed) {
-      setReviewOpen(true);
-      playSound('success');
-    }
-  };
-
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        "The city's data library needs to be reorganised urgently!",
-        'Some data is neatly structured like a table. Other data is wild and unstructured.',
-        'Sort each file into the right shelf. Structured or Unstructured — go!',
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
-  return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Data Examples</p>
-        <div className="grid-2">
-          {structureExamples.map((example) => (
-            <button
-              key={example.label}
-              type="button"
-              className={`draggable-card${selected === example.label ? ' selected' : ''}`}
-              onClick={() => {
-                setSelected(example.label);
-                playSound('click');
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-              }}
-            >
-              <div style={{ fontSize: '1.4rem' }}>{example.icon}</div>
-              <div style={{ textAlign: 'left', flex: 1 }}>
-                <div>{example.label}</div>
-                <div className="small-note">{assigned[example.label] ?? 'Unsorted'}</div>
+          {miniStep === 1 && (
+            <div style={{ animation: 'slideInRight 0.3s' }}>
+              <h3 style={{ color: COLORS.accent }}>Override 2: Regression Intercept Target</h3>
+              <p style={{ color: COLORS.textSecondary }}>Review the systematic trend data line below: [Mon: 10, Tue: 12, Wed: 14, Thu: 16]. Calculate the predicted core variable vector target for Friday:</p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>14 Core Units</button>
+                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(true)}>18 Core Units</button>
+                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>22 Core Units</button>
               </div>
-              {assigned[example.label] && <div>✓</div>}
-            </button>
-          ))}
-        </div>
-      </div>
+            </div>
+          )}
 
-      <div className="card">
-        <p className="metric-label">Data Type Zones</p>
-        <div className="grid-2">
-          {groups.map((group) => (
-            <button
-              key={group.id}
-              type="button"
-              onClick={() => handleDrop(group.id)}
-              style={{
-                padding: 16,
-                borderRadius: 8,
-                border: `2px dashed ${group.color}`,
-                background: group.bg,
-                cursor: selected ? 'pointer' : 'default',
-                transition: 'all 200ms ease',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: '1.8rem', marginBottom: 8 }}>{group.emoji}</div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>{group.label}</div>
-              <p className="small-note">{group.hint}</p>
-              <div className="small-note" style={{ marginTop: 8, color: group.color }}>
-                {Object.entries(assigned)
-                  .filter(([, value]) => value === group.id)
-                  .map(([label]) => label)
-                  .join(', ') || 'Empty'}
+          {miniStep === 2 && (
+            <div style={{ animation: 'slideInRight 0.3s' }}>
+              <h3 style={{ color: COLORS.accent }}>Override 3: Lexical Sentiment Intercept</h3>
+              <p style={{ color: COLORS.textSecondary }}>Linguistic intercept: "The primary mainframe cooling lines have failed completely. This is absolutely disastrous!" Evaluate the semantic balance weight:</p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>😊 Positive Tensor</button>
+                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>😐 Neutral Balance</button>
+                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(true)}>😠 Negative Backlog</button>
               </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="card">
-        <p className="small-note">{Object.keys(assigned).length} / {structureExamples.length} examples sorted</p>
-        <div className="core-meter">
-          <div className="core-fill" style={{ width: `${(Object.keys(assigned).length / structureExamples.length) * 100}%` }} />
-        </div>
-        <p className={`status-chip ${correct && completed ? 'success-state' : ''}`}>
-          {correct && completed ? 'Mastery unlocked! Structured and unstructured data separated.' : 'Sort each example to the right data type.'}
-        </p>
-        <button
-          className="button-primary"
-          onClick={() => {
-            if (reviewOpen) {
-              onComplete();
-            } else {
-              handleComplete();
-            }
-          }}
-          disabled={!correct || !completed}
-        >
-          {reviewOpen ? 'Proceed to next district' : 'Complete Mission'}
-        </button>
-      </div>
-
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
-      />
-    </div>
-  );
-}
-
-function TrainingArenaSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'trainingArena')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const [choices, setChoices] = useState<Record<string, string>>({});
-  const [selected, setSelected] = useState<string | null>(null);
-  const [complete, setComplete] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [placingStage, setPlacingStage] = useState<string | null>(null);
-
-  const stages = ['Collect Data', 'Train', 'Test'];
-  const correctStageMap = {
-    'Collect Data': 'Practice examples',
-    'Train': 'Validation set',
-    'Test': 'Final exam set',
-  };
-
-  const handleSelectToken = (label: string) => {
-    setSelected(label);
-    playSound('click');
-  };
-
-  const handlePlaceToken = (stage: string) => {
-    if (!selected) return;
-    setChoices((prev) => ({ ...prev, [stage]: selected }));
-    setSelected(null);
-    playSound('drop');
-    setPlacingStage(stage);
-    setTimeout(() => setPlacingStage(null), 700);
-  };
-
-  const correct = stages.every((stage) => choices[stage] === correctStageMap[stage as keyof typeof correctStageMap]);
-  const allChosen = stages.every((stage) => choices[stage]);
-
-  const handleComplete = () => {
-    if (correct && allChosen) {
-      setComplete(true);
-      playSound('success');
-      setTimeout(() => setReviewOpen(true), 800);
-    }
-  };
-
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        "Inside the Training Arena, every AI fighter must go through three rounds before it's ready.",
-        "Round 1: Practice on training data. Round 2: Tune using validation data. Round 3: Final test with test data.",
-        "Assign the right dataset to the right round. Don't mix them up or the AI will cheat!",
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
-  return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Training Pipeline</p>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 16,
-          alignItems: 'center',
-          marginTop: 20,
-        }}>
-          {stages.map((stage, i) => (
-            <div key={stage}>
-              <button
-                type="button"
-                className="small-button"
-                onClick={() => handlePlaceToken(stage)}
-                style={{
-                  padding: 16,
-                  minHeight: 80,
-                  border: choices[stage] ? '2px solid rgba(94, 252, 130, 0.6)' : '2px dashed rgba(75, 155, 255, 0.4)',
-                  background: choices[stage] ? 'rgba(94, 252, 130, 0.1)' : 'rgba(75, 155, 255, 0.05)',
-                  cursor: selected ? 'pointer' : 'default',
-                  transition: 'all 200ms ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                }}
-              >
-                <div style={{ fontSize: '1.4rem' }}>
-                  {i === 0 ? '📥' : i === 1 ? '🏋️' : '📋'}
-                </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{stage}</div>
-                <div style={{ fontSize: '0.75rem', color: '#b6c7dc' }}>{i === 0 ? 'Round 1 — Practice' : i === 1 ? 'Round 2 — Tune' : 'Round 3 — Final'}</div>
-                {choices[stage] && <div style={{ fontSize: '0.75rem', color: '#5efca2', marginTop: 4 }}>✓ {choices[stage]}</div>}
-              </button>
-              {placingStage === stage && (
-                <div style={{ textAlign: 'center', marginTop: 8, color: '#7ff4b4', fontWeight: 700, animation: 'pulse 700ms ease' }}>PLACED</div>
-              )}
-              {i < stages.length - 1 && (
-                <div style={{
-                  textAlign: 'center',
-                  marginTop: 12,
-                  fontSize: '1.2rem',
-                  animation: complete ? 'flowArrow 1.2s ease-in-out infinite' : 'none',
-                }}>
-                  →
-                </div>
-              )}
             </div>
-          ))}
-        </div>
-      </div>
+          )}
 
-      <div className="card">
-        <p className="metric-label">Available Tokens</p>
-        <div style={{ display: 'flex', gap: 10, marginTop: 12, alignItems: 'center' }}>
-          {trainingCards.map((card) => {
-            const isUsed = Object.values(choices).includes(card.label);
-            return (
-              <button
-                key={card.id}
-                type="button"
-                className={`small-button${selected === card.label ? ' selected' : ''}`}
-                onClick={() => handleSelectToken(card.label)}
-                style={{
-                  opacity: isUsed ? 0.4 : 1,
-                  cursor: isUsed ? 'default' : 'pointer',
-                  pointerEvents: isUsed ? 'none' : 'auto',
-                  transform: selected === card.label ? 'translateY(-6px) scale(1.03)' : undefined,
-                  transition: 'all 220ms ease',
-                }}
-              >
-                <div style={{ fontSize: '1.2rem' }}>{card.icon}</div>
-                <div style={{ fontSize: '0.85rem' }}>{card.label}</div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="card">
-        <p className="small-note">{Object.keys(choices).length} / {stages.length} stages assigned</p>
-        <div className="core-meter">
-          <div className="core-fill" style={{ width: `${(Object.keys(choices).length / stages.length) * 100}%` }} />
-        </div>
-        <p className={`status-chip ${correct && allChosen ? 'success-state' : ''}`}>
-          {correct && allChosen ? '🚀 Training Complete! Pipeline activated.' : 'Assign tokens to each stage.'}
-        </p>
-        <button
-          className="button-primary"
-          onClick={() => {
-            if (reviewOpen) {
-              onComplete();
-            } else if (allChosen && correct) {
-              handleComplete();
-            } else if (!correct) {
-              playSound('error');
-            }
-          }}
-          disabled={!correct || !allChosen}
-        >
-          {reviewOpen ? 'Proceed to next district' : 'Complete Mission'}
-        </button>
-      </div>
-
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
-      />
-    </div>
-  );
-}
-
-function WorkflowMachineSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'workflowMachine')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const [slots, setSlots] = useState<Record<number, string>>({});
-  const [selected, setSelected] = useState<string | null>(null);
-  const [complete, setComplete] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-
-  const correct = workflowSteps.every((step, i) => slots[i + 1] === step);
-  const allFilled = workflowSteps.every((_, i) => slots[i + 1]);
-
-  const handleSelectCard = (step: string) => {
-    setSelected(step);
-    playSound('click');
-  };
-
-  const handlePlaceCard = (slotNum: number) => {
-    if (!selected) return;
-    if (slots[slotNum]) return; // Slot already filled
-    setSlots((prev) => ({ ...prev, [slotNum]: selected }));
-    playSound('drop');
-    setSelected(null);
-  };
-
-  const handleSlotClick = (slotNum: number) => {
-    // If there is a selected step, try to place into this slot
-    if (selected && !slots[slotNum]) {
-      setSlots((prev) => ({ ...prev, [slotNum]: selected }));
-      setSelected(null);
-      playSound('drop');
-      return;
-    }
-    // If slot filled and no selection, remove it back to pool
-    if (!selected && slots[slotNum]) {
-      const removed = slots[slotNum];
-      setSlots((prev) => {
-        const copy = { ...prev };
-        delete copy[slotNum];
-        return copy;
-      });
-      playSound('click');
-      // set it back as selected so user can place elsewhere
-      setSelected(removed);
-    }
-  };
-
-  const handleComplete = () => {
-    if (correct && allFilled) {
-      setComplete(true);
-      playSound('success');
-      setTimeout(() => setReviewOpen(true), 1500);
-    }
-  };
-
-  const unplacedSteps = workflowSteps.filter((step) => !Object.values(slots).includes(step));
-
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        "The city's AI Machine has been sabotaged — its process steps are all scrambled!",
-        "There's a correct order to build any AI system. Drag the steps into the right slots.",
-        'Get the order right and watch the machine roar back to life!',
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
-  return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">Machine Workflow</p>
-        <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {Array.from({ length: workflowSteps.length }, (_, i) => i + 1).map((slotNum, i) => (
-            <div key={slotNum}>
-              <button
-                type="button"
-                onClick={() => handleSlotClick(slotNum)}
-                style={{
-                  width: '100%',
-                  padding: 12,
-                  borderRadius: 8,
-                  border: slots[slotNum] ? '2px solid rgba(94, 252, 130, 0.6)' : '2px dashed rgba(75, 155, 255, 0.4)',
-                  background: slots[slotNum] ? 'rgba(94, 252, 130, 0.08)' : 'rgba(75, 155, 255, 0.05)',
-                  cursor: selected ? 'pointer' : 'default',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  transition: 'all 200ms ease',
-                  opacity: complete ? 1 : 0.95,
-                }}
-              >
-                <div style={{ fontSize: '1.4rem', minWidth: 30 }}>{slotNum}</div>
-                <div>
-                  {slots[slotNum] ? (
-                    <div style={{ fontWeight: 600 }}>{slots[slotNum]}</div>
-                  ) : (
-                    <div className="small-note">Empty slot</div>
-                  )}
-                </div>
-              </button>
-              {i < 4 && (
-                <div style={{
-                  textAlign: 'center',
-                  padding: '4px 0',
-                  fontSize: '1.2rem',
-                  animation: complete ? `flowArrow 1.2s ease-in-out infinite` : 'none',
-                  animationDelay: complete ? `${i * 200}ms` : 'none',
-                }}>
-                  ↓
-                </div>
-              )}
+          {miniStep === 3 && (
+            <div style={{ animation: 'slideInRight 0.3s' }}>
+              <h3 style={{ color: COLORS.accent }}>Override 4: Spatial Clusters Count</h3>
+              <p style={{ color: COLORS.textSecondary }}>An unsupervised topology map logs 3 tight clusters of geometric shapes alongside 3 separate clusters of biological data vectors. How many distinct natural groups exist?</p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>1 Composite Blob</button>
+                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(true)}>2 Isolated Dense Clusters</button>
+                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>4 Segmented Spans</button>
+              </div>
             </div>
-          ))}
+          )}
         </div>
-      </div>
+      ) : (
+        // BOSS BATTLE NODE MODE PANEL
+        <div className={bossShake ? 'shake' : ''} style={{ animation: 'slideUp 0.4s' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <span style={{ color: '#ff4b4b', fontWeight: 'bold', fontSize: '0.9rem' }}>🛡️ FIREWALL DEPLOYED MATRIX</span>
+            <span style={{ backgroundColor: '#ff4b4b', color: '#fff', padding: '4px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+              ⏳ SECURITY INTERCEPT DETECTED: {timeLeft}s
+            </span>
+          </div>
 
-      <div className="card">
-        <p className="metric-label">Available Steps</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 12 }}>
-          {unplacedSteps.map((step) => (
-            <button
-              key={step}
-              type="button"
-              className={`small-button${selected === step ? ' selected' : ''}`}
-              onClick={() => handleSelectCard(step)}
-            >
-              {step}
-            </button>
-          ))}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '4px' }}>
+              <span>Mainframe Logic Core Health Status</span>
+              <span style={{ color: coreHealth > 40 ? COLORS.success : COLORS.error, fontWeight: 'bold' }}>{coreHealth}%</span>
+            </div>
+            <div style={{ width: '100%', height: '12px', backgroundColor: '#3a1010', borderRadius: '6px', overflow: 'hidden' }}>
+              <div style={{ width: `${coreHealth}%`, height: '100%', backgroundColor: coreHealth > 40 ? COLORS.success : COLORS.error, transition: 'width 0.3s' }} />
+            </div>
+          </div>
+
+          {coreHealth <= 0 ? (
+            <div style={{ textAlign: 'center', padding: '16px' }}>
+              <p style={{ color: COLORS.error, fontWeight: 'bold' }}>MAIN FRAMEWORK IS CRITICALLY DEGRADED</p>
+              <button style={primaryBtn} onClick={() => { setCoreHealth(100); setBossIdx(0); setSubStage('MINI_GAMES'); setMiniStep(0); }}>
+                Re-initialize Core Terminals Override Sequences
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid rgba(255,75,75,0.2)' }}>
+                <span style={{ fontSize: '0.75rem', color: '#ff7878', display: 'block', marginBottom: '6px' }}>CHALLENGE COMPILER INTEGRATION {bossIdx + 1} / {BOSS_QUESTIONS.length}:</span>
+                <p style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#fff' }}>{BOSS_QUESTIONS[bossIdx].q}</p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {BOSS_QUESTIONS[bossIdx].options.map((opt, oIdx) => (
+                  <button key={oIdx} style={{ ...choiceBtn, textAlign: 'left', minHeight: '48px' }} onClick={() => handleBossAnswer(oIdx)}>
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-
-      <div className="card">
-        <p className="small-note">{Object.keys(slots).length} / {workflowSteps.length} steps placed</p>
-        <div className="core-meter">
-          <div className="core-fill" style={{ width: `${(Object.keys(slots).length / workflowSteps.length) * 100}%` }} />
-        </div>
-        <p className={`status-chip ${correct && allFilled ? 'success-state' : ''}`}>
-          {correct && allFilled ? '⚙️ Machine workflow activated!' : 'Place steps in the correct order.'}
-        </p>
-        <button
-          className="button-primary"
-          onClick={() => {
-            if (reviewOpen) {
-              onComplete();
-            } else if (allFilled && correct) {
-              handleComplete();
-            }
-          }}
-          disabled={!correct || !allFilled}
-        >
-          {reviewOpen ? 'Proceed to next district' : 'Complete Mission'}
-        </button>
-      </div>
-
-      <ReviewPanel
-        description={sectionData.description}
-        realWorld={sectionData.realWorld}
-        onAdvance={onComplete}
-        ready={reviewOpen}
-      />
+      )}
     </div>
   );
 }
 
-function FinalMissionSection({ onComplete }: { onComplete: () => void }) {
-  const sectionData = sections.find((item) => item.key === 'finalMission')!;
-  const [gateOpen, setGateOpen] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [phase, setPhase] = useState<'challenge' | 'battle'>('challenge');
-  const [incorrectAttempts, setIncorrectAttempts] = useState(0);
-  const [launchingBattle, setLaunchingBattle] = useState(false);
+// ============================================================================
+// APP ROOT HOOKS & ARCHITECTURE LAYOUT CONTAINER
+// ============================================================================
+export default function App() {
+  const [xp, setXp] = useState(0);
+  const [completed, setCompleted] = useState<SectionKey[]>([]);
+  const [currentSection, setCurrentSection] = useState<SectionKey>('landing');
 
-  const sensors = [
-    { label: 'Door', icon: '🚪', isCorrect: true },
-    { label: 'Window', icon: '🪟', isCorrect: false },
-    { label: 'Traffic', icon: '🚦', isCorrect: false },
-    { label: 'Light', icon: '💡', isCorrect: false },
-    { label: 'Temp', icon: '🌡️', isCorrect: false },
-    { label: 'Sound', icon: '🔊', isCorrect: false },
-  ];
+  const displayedXp = useCountUp(xp);
 
-  const patterns = [
-    { id: 'A', sequence: '2 → 4 → 6 → 8 → 10', correct: true },
-    { id: 'B', sequence: '5 → 10 → 15 → 21 → 25', correct: false, hint: '21 should be 20' },
-    { id: 'C', sequence: '3 → 6 → 9 → 12 → 15', correct: true },
-  ];
+  const handleSectionComplete = () => {
+    const currentConf = SECTIONS.find(s => s.key === currentSection);
+    if (currentConf && !completed.includes(currentSection)) {
+      setXp(p => p + currentConf.xpReward);
+      setCompleted(p => [...p, currentSection]);
+    }
 
-  const dataQuestion = 'A log of temperature readings every hour for 30 days: 22°C, 23°C, 21°C, 24°C...';
-  const dataOptions = ['📝 Text Data', '⏱️ Time-Series Data', '🗺️ Spatial Data'];
-
-  const energyTrend = [
-    { day: 'Mon', usage: 22 },
-    { day: 'Tue', usage: 24 },
-    { day: 'Wed', usage: 26 },
-    { day: 'Thu', usage: 29 },
-  ];
-
-  const handleSensorTap = (label: string) => {
-    // Single-select toggle: select a sensor or deselect it
-    setAnswers((prev) => ({
-      ...prev,
-      challenge1: prev.challenge1 === label ? '' : label,
-    }));
-    playSound('click');
-  };
-
-  const challenge1Complete = answers.challenge1 === 'Door';
-  const challenge2Complete = answers.challenge2 === '30';
-  const challenge3Complete = answers.challenge3 === '⏱️ Time-Series Data';
-  const challenge4Complete = answers.challenge4 === 'B';
-
-  const allChallengesComplete = challenge1Complete && challenge2Complete && challenge3Complete && challenge4Complete;
-
-  const handleSubmit = () => {
-    if (allChallengesComplete) {
-      playSound('power');
-      setLaunchingBattle(true);
+    const currentIdx = SECTIONS.findIndex(s => s.key === currentSection);
+    if (currentIdx !== -1 && currentIdx < SECTIONS.length - 1) {
+      setCurrentSection(SECTIONS[currentIdx + 1].key);
     } else {
-      playSound('error');
-      setIncorrectAttempts((prev) => prev + 1);
+      setCurrentSection('victory');
     }
   };
 
-  if (launchingBattle) return (
-    <NovaGate
-      lines={[
-        'Systems online. Powering up the Guardian AI...',
-        'This is it — the Boss Battle begins. Use all your skills and stay sharp!',
-      ]}
-      onDone={() => { setLaunchingBattle(false); setPhase('battle'); }}
-    />
-  );
+  const getActiveBadge = () => {
+    if (completed.length === 0) return '🚀 Greenhorn Cadet';
+    const lastKey = completed[completed.length - 1];
+    const found = SECTIONS.find(s => s.key === lastKey);
+    return found ? found.badge : '🚀 Greenhorn Cadet';
+  };
 
-  if (phase === 'battle') {
-    return <BossBattle onVictory={onComplete} />;
-  }
+  const progressPercent = Math.floor((completed.length / SECTIONS.length) * 100);
 
-  if (!gateOpen) return (
-    <NovaGate
-      lines={[
-        'ALERT! The AI Core has 4 corrupted systems. NeoCity is going dark!',
-        'Use everything you\'ve learned — Classification, Prediction, Data Types, and Pattern Recognition.',
-        'Each challenge restores one system. All 4 correct = Boss Battle unlocked. Go!',
-      ]}
-      onDone={() => setGateOpen(true)}
-    />
-  );
   return (
-    <div className="task-grid">
-      <div className="card">
-        <p className="metric-label">🎯 FINAL MISSION</p>
-        <h3 className="h2">The AI Core is Corrupted</h3>
-        <p className="small-note">Solve all 4 challenges to restore each system. You have one chance per challenge.</p>
-        <div style={{ marginTop: 16 }}>
-          <p className="small-note">Systems Restored: {[challenge1Complete, challenge2Complete, challenge3Complete, challenge4Complete].filter(Boolean).length} / 4</p>
-          <div className="core-meter">
-            <div className="core-fill" style={{ width: `${([challenge1Complete, challenge2Complete, challenge3Complete, challenge4Complete].filter(Boolean).length / 4) * 100}%` }} />
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <GlobalStyles />
+
+      {/* Primary Header Interface Grid */}
+      <header style={{ backgroundColor: '#0b1424', padding: '16px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '1.8rem' }}>🏙️</span>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '1.2rem', letterSpacing: '0.5px', color: COLORS.textPrimary }}>NeoCity AI Adventure</h1>
+            <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, textTransform: 'uppercase' }}>Central Administration Mainframe</span>
           </div>
         </div>
-      </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ backgroundColor: '#10223b', padding: '8px 16px', borderRadius: '12px', border: '1px solid rgba(75,155,255,0.2)' }}>
+            <span style={{ fontSize: '0.75rem', color: COLORS.textSecondary, display: 'block' }}>EXP METRICS ACCRUE</span>
+            <span style={{ fontSize: '1.3rem', fontWeight: 'bold', color: COLORS.success }}>✨ {displayedXp} XP</span>
+          </div>
+        </div>
+      </header>
 
-      {/* Challenge 1: Classify Sensor Alerts */}
-      <div className="card">
-        <p className="metric-label">Challenge 1: Classify Sensors</p>
-        <p>Tap ONLY the DOOR sensors. The system is misfiring.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 12 }}>
-          {sensors.map((sensor) => {
-            const isSelected = answers.challenge1?.includes(sensor.label);
-            return (
+      {/* Main Framework Partition Columns split */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '280px 1fr', backgroundColor: COLORS.bg }}>
+        
+        {/* Left Interactive Track Map Sidebar Panel */}
+        <aside style={{ backgroundColor: '#0b1321', borderRight: '1px solid rgba(255,255,255,0.05)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div>
+            <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>Core Progress</span>
+            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '6px' }}>System Restored: {progressPercent}%</div>
+            <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: COLORS.accent, transition: 'width 0.4s ease' }} />
+            </div>
+          </div>
+
+          <div>
+            <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>Equipped Clearance Level Badge</span>
+            <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '10px', fontSize: '0.85rem', border: '1px solid rgba(255,255,255,0.05)', fontWeight: 'bold', color: COLORS.accent }}>
+              {getActiveBadge()}
+            </div>
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, display: 'block', marginBottom: '10px', textTransform: 'uppercase' }}>District Transit Coordinates</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {SECTIONS.map((sec, sIdx) => {
+                const isCompleted = completed.includes(sec.key);
+                const isActive = currentSection === sec.key;
+                let color = 'rgba(255,255,255,0.3)';
+                let bg = 'transparent';
+                if (isActive) {
+                  color = COLORS.accent;
+                  bg = 'rgba(75,155,255,0.08)';
+                } else if (isCompleted) {
+                  color = COLORS.success;
+                }
+
+                return (
+                  <div
+                    key={sec.key}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      fontSize: '0.8rem',
+                      fontWeight: isActive || isCompleted ? 'bold' : 'normal',
+                      color: color,
+                      backgroundColor: bg,
+                      border: isActive ? '1px solid rgba(75,155,255,0.2)' : '1px solid transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span>{isCompleted ? '✅' : isActive ? '⚡' : '🔒'}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>0{sIdx + 1}: {sec.title}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+
+        {/* Right Active Dynamic Sandbox Screen Area Viewport Container */}
+        <main style={{ padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+          
+          {currentSection === 'landing' && (
+            <div style={{ ...cardStyle, textAlign: 'center', padding: '48px' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '16px', animation: 'float 3s infinite alternate' }}>🛸</div>
+              <h2 style={{ fontSize: '2rem', color: '#fff', margin: '0 0 12px 0' }}>NeoCity AI Adventure Terminal Entry</h2>
+              <p style={{ color: COLORS.textSecondary, fontSize: '1.1rem', maxWidth: '500px', margin: '0 auto 32px auto', lineHeight: 1.6 }}>
+                Junior Explorer, NeoCity's central machine intelligence clusters have suffered a total logic crash. We need to travel across the operational districts to reboot the pipelines!
+              </p>
+              <button style={{ ...primaryBtn, fontSize: '1.1rem', padding: '16px 40px' }} onClick={() => { playSound('power'); setCurrentSection('whatIsAI'); }}>
+                Initialize System Override Array Protocols →
+              </button>
+            </div>
+          )}
+
+          {currentSection === 'whatIsAI' && <WhatIsAISection onComplete={handleSectionComplete} />}
+          {currentSection === 'classification' && <ClassificationSection onComplete={handleSectionComplete} />}
+          {currentSection === 'trainingData' && <TrainingDataSection onComplete={handleSectionComplete} />}
+          {currentSection === 'computerVision' && <ComputerVisionSection onComplete={handleSectionComplete} />}
+          {currentSection === 'nlp' && <NLPSection onComplete={handleSectionComplete} />}
+          {currentSection === 'regression' && <RegressionSection onComplete={handleSectionComplete} />}
+          {currentSection === 'clustering' && <ClusteringSection onComplete={handleSectionComplete} />}
+          {currentSection === 'dataTypes' && <DataTypesSection onComplete={handleSectionComplete} />}
+          {currentSection === 'aiWorkflow' && <AIWorkflowSection onComplete={handleSectionComplete} />}
+          {currentSection === 'finalMission' && <FinalMissionSection onComplete={handleSectionComplete} />}
+
+          {currentSection === 'victory' && (
+            <div style={{ ...cardStyle, textAlign: 'center', padding: '48px', position: 'relative', overflow: 'hidden' }}>
+              {/* Confetti Generation loops block */}
+              {Array.from({ length: 40 }).map((_, i) => {
+                const left = Math.random() * 100;
+                const delay = Math.random() * 3;
+                const colorsArr = ['#4b9bff', '#5efc82', '#ff6464', '#ffbb00'];
+                const randomColor = colorsArr[Math.floor(Math.random() * colorsArr.length)];
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      position: 'absolute',
+                      width: '8px',
+                      height: '8px',
+                      backgroundColor: randomColor,
+                      top: '-10px',
+                      left: `${left}%`,
+                      opacity: 0.7,
+                      borderRadius: '50%',
+                      animation: `confettiFall 4s linear infinite`,
+                      animationDelay: `${delay}s`,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                );
+              })}
+
+              <div style={{ fontSize: '5rem', marginBottom: '16px' }}>👑</div>
+              <h2 style={{ fontSize: '2.5rem', color: COLORS.success, margin: '0 0 12px 0' }}>MAINFRAME TOTALLY RESTORED!</h2>
+              <p style={{ color: COLORS.textSecondary, fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto 32px auto', lineHeight: 1.6 }}>
+                Incredible work, Master Explorer! You successfully navigated through text token sentiments, linear regressions, computer vision boundaries, and pipeline optimizations. NeoCity is safe and fully operational!
+              </p>
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', maxWidth: '500px', margin: '0 auto 40px auto' }}>
+                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px 24px', borderRadius: '16px', flex: 1 }}>
+                  <span style={{ fontSize: '0.8rem', color: COLORS.textMuted, display: 'block' }}>TOTAL SCORE METRICS</span>
+                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: COLORS.accent }}>{xp} XP</span>
+                </div>
+                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px 24px', borderRadius: '16px', flex: 1 }}>
+                  <span style={{ fontSize: '0.8rem', color: COLORS.textMuted, display: 'block' }}>DISTRICT CORES OVERRIDDEN</span>
+                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: COLORS.success }}>10 / 10</span>
+                </div>
+              </div>
+
               <button
-                key={sensor.label}
-                type="button"
-                onClick={() => handleSensorTap(sensor.label)}
-                disabled={challenge1Complete}
-                style={{
-                  padding: 12,
-                  borderRadius: 8,
-                  border: isSelected ? '2px solid rgba(94, 252, 130, 0.8)' : '2px solid rgba(75, 155, 255, 0.3)',
-                  background: isSelected && sensor.isCorrect ? 'rgba(94, 252, 130, 0.15)' : isSelected && !sensor.isCorrect ? 'rgba(255, 100, 100, 0.15)' : 'rgba(75, 155, 255, 0.05)',
-                  textAlign: 'center',
-                  cursor: challenge1Complete ? 'default' : 'pointer',
-                  opacity: challenge1Complete && !isSelected ? 0.5 : 1,
+                style={{ ...primaryBtn, fontSize: '1.1rem', padding: '16px 40px' }}
+                onClick={() => {
+                  playSound('power');
+                  setXp(0);
+                  setCompleted([]);
+                  setCurrentSection('landing');
                 }}
               >
-                <div style={{ fontSize: '1.4rem' }}>{sensor.icon}</div>
-                <div style={{ fontSize: '0.85rem' }}>{sensor.label}</div>
-                {isSelected && (sensor.isCorrect ? '✓' : '✗')}
+                Reinitialize Simulation Matrix 🔄
               </button>
-            );
-          })}
-        </div>
-        {challenge1Complete && <div style={{ marginTop: 8, color: '#5efca2' }}>✓ Challenge 1 Complete</div>}
-      </div>
+            </div>
+          )}
 
-      {/* Challenge 2: Predict Energy Demand */}
-      <div className="card">
-        <p className="metric-label">Challenge 2: Predict Energy</p>
-        <p>Energy trend is rising. Predict tomorrow's demand.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
-          {['28', '30', '32'].map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`small-button${answers.challenge2 === option ? ' selected' : ''}`}
-              onClick={() => { setAnswers((prev) => ({ ...prev, challenge2: option })); playSound('click'); }}
-              disabled={challenge2Complete}
-            >
-              {option} units
-            </button>
-          ))}
-        </div>
-        {challenge2Complete && <div style={{ marginTop: 8, color: '#5efca2' }}>✓ Challenge 2 Complete</div>}
-      </div>
-
-      {/* Challenge 3: Choose Dataset Type */}
-      <div className="card">
-        <p className="metric-label">Challenge 3: Identify Data Type</p>
-        <p>{dataQuestion}</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
-          {dataOptions.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`small-button${answers.challenge3 === option ? ' selected' : ''}`}
-              onClick={() => { setAnswers((prev) => ({ ...prev, challenge3: option })); playSound('click'); }}
-              disabled={challenge3Complete}
-            >
-              {option.split(' ')[0]}
-              <br />
-              <span style={{ fontSize: '0.85rem' }}>{option.split(' ').slice(1).join(' ')}</span>
-            </button>
-          ))}
-        </div>
-        {challenge3Complete && <div style={{ marginTop: 8, color: '#5efca2' }}>✓ Challenge 3 Complete</div>}
-      </div>
-
-      {/* Challenge 4: Spot Broken Pattern */}
-      <div className="card">
-        <p className="metric-label">Challenge 4: Find the Broken Pattern</p>
-        <p>One pattern has a broken step. Which one?</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10, marginTop: 12 }}>
-          {patterns.map((pattern) => (
-            <button
-              key={pattern.id}
-              type="button"
-              onClick={() => { setAnswers((prev) => ({ ...prev, challenge4: pattern.id })); playSound('click'); }}
-              disabled={challenge4Complete}
-              style={{
-                padding: 12,
-                borderRadius: 8,
-                border: answers.challenge4 === pattern.id ? '2px solid rgba(94, 252, 130, 0.8)' : '2px solid rgba(75, 155, 255, 0.3)',
-                background: answers.challenge4 === pattern.id && pattern.correct ? 'rgba(94, 252, 130, 0.15)' : answers.challenge4 === pattern.id && !pattern.correct ? 'rgba(255, 100, 100, 0.15)' : 'rgba(75, 155, 255, 0.05)',
-                textAlign: 'left',
-                cursor: challenge4Complete ? 'default' : 'pointer',
-              }}
-            >
-              <div style={{ fontWeight: 600 }}>Pattern {pattern.id}: {pattern.sequence}</div>
-              {answers.challenge4 === pattern.id && (pattern.correct ? '✓ Correct' : `✗ Broken: ${pattern.hint}`)}
-            </button>
-          ))}
-        </div>
-        {challenge4Complete && <div style={{ marginTop: 8, color: '#5efca2' }}>✓ Challenge 4 Complete</div>}
-      </div>
-
-      <div className="card">
-        <p className={`status-chip ${allChallengesComplete ? 'success-state' : ''}`}>
-          {allChallengesComplete ? '⚡ All challenges solved! Ready to face the final guardian.' : incorrectAttempts > 0 ? 'Keep trying. You\'ve got this!' : 'Solve all 4 challenges to restore the core.'}
-        </p>
-        <button
-          className="button-primary"
-          onClick={handleSubmit}
-          disabled={!allChallengesComplete}
-        >
-          {allChallengesComplete ? 'Engage Final Battle' : 'Check Answers'}
-        </button>
+        </main>
       </div>
     </div>
   );
 }
-
-export default App;
