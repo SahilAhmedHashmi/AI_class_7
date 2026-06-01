@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
-// ============================================================================
-// CORE DATA TYPES, THEMES, AND CONSTANTS
-// ============================================================================
 type SectionKey =
   | 'landing'
   | 'whatIsAI'
@@ -14,52 +12,312 @@ type SectionKey =
   | 'clustering'
   | 'dataTypes'
   | 'aiWorkflow'
-  | 'finalMission'
-  | 'victory';
+  | 'finalMission';
 
-interface SectionConfig {
-  key: SectionKey;
-  title: string;
-  badge: string;
-  xpReward: number;
-}
+type MissionKey = Exclude<SectionKey, 'landing'>;
+type SoundType = 'click' | 'drop' | 'success' | 'error' | 'power';
+type CompleteHandler = () => void;
+type Sentiment = 'Positive' | 'Neutral' | 'Negative';
 
-const SECTIONS: SectionConfig[] = [
-  { key: 'whatIsAI', title: 'What is AI?', badge: '🧠 Brainwave Initiate', xpReward: 30 },
-  { key: 'classification', title: 'Classification Factory', badge: '🗂️ Sorting Strategist', xpReward: 30 },
-  { key: 'trainingData', title: 'Training the AI', badge: '🏋️ Master Trainer', xpReward: 30 },
-  { key: 'computerVision', title: 'Computer Vision Scanner', badge: '👁️ Cyber Sentinel', xpReward: 30 },
-  { key: 'nlp', title: 'Language Harbor', badge: '💬 Phrase Parser', xpReward: 30 },
-  { key: 'regression', title: 'Regression Observatory', badge: '📈 Trend Tracer', xpReward: 30 },
-  { key: 'clustering', title: 'Clustering Forest', badge: '🌌 Galaxy Grouper', xpReward: 30 },
-  { key: 'dataTypes', title: 'The Data Vault', badge: '🔐 Code Cracker', xpReward: 30 },
-  { key: 'aiWorkflow', title: 'The AI Pipeline Machine', badge: '⚙️ System Architect', xpReward: 30 },
-  { key: 'finalMission', title: 'Restore the AI Core', badge: '⚡ NeoCity Savior', xpReward: 30 },
+const sectionOrder: SectionKey[] = [
+  'landing',
+  'whatIsAI',
+  'classification',
+  'trainingData',
+  'computerVision',
+  'nlp',
+  'regression',
+  'clustering',
+  'dataTypes',
+  'aiWorkflow',
+  'finalMission',
 ];
 
-const COLORS = {
-  bg: '#08101f',
-  cardBg: 'rgba(16, 28, 46, 0.95)',
-  accent: '#4b9bff',
-  success: '#5efc82',
-  error: '#ff6464',
-  textPrimary: '#f7fbff',
-  textSecondary: '#b6c7dc',
-  textMuted: '#8bb0ff',
+const missionKeys = sectionOrder.filter((key): key is MissionKey => key !== 'landing');
+
+const sectionTitles: Record<SectionKey, string> = {
+  landing: 'Launch',
+  whatIsAI: 'What is AI?',
+  classification: 'Classification Factory',
+  trainingData: 'Training the AI',
+  computerVision: 'Computer Vision Scanner',
+  nlp: 'Language Harbor',
+  regression: 'Regression Observatory',
+  clustering: 'Clustering Forest',
+  dataTypes: 'The Data Vault',
+  aiWorkflow: 'The AI Pipeline Machine',
+  finalMission: 'Restore the AI Core',
 };
 
-// ============================================================================
-// INLINE GLOBAL STYLES & AUDIO SYNTHESIZER
-// ============================================================================
+const aiItems = [
+  { id: 'siri', icon: '🎙️', name: 'Siri', kind: 'ai', hint: 'Siri learns speech patterns from millions of voice examples.' },
+  { id: 'chess', icon: '♟️', name: 'Chess Robot', kind: 'ai', hint: 'A strong chess robot improves by searching and learning from games.' },
+  { id: 'calculator', icon: '🔢', name: 'Calculator', kind: 'rules', hint: 'A calculator follows exact arithmetic rules. It does not learn from examples.' },
+  { id: 'spam', icon: '📧', name: 'Spam Filter', kind: 'ai', hint: 'Spam filters learn from labelled emails and sender patterns.' },
+  { id: 'thermostat', icon: '🌡️', name: 'Thermostat', kind: 'rules', hint: 'A simple thermostat follows a fixed temperature rule.' },
+  { id: 'translator', icon: '🌐', name: 'Translator', kind: 'ai', hint: 'Translators learn from huge collections of paired sentences.' },
+  { id: 'car', icon: '🚗', name: 'Self-driving car', kind: 'ai', hint: 'Self-driving cars learn from sensor, camera, and road data.' },
+  { id: 'alarm', icon: '⏰', name: 'Alarm Clock', kind: 'rules', hint: 'An alarm clock follows the time you set.' },
+  { id: 'music', icon: '🎵', name: 'Music Recommender', kind: 'ai', hint: 'Music recommenders learn from listening history and similar users.' },
+] as const;
+
+const factoryItems = [
+  { icon: '🍎', name: 'Apple', desc: 'Sweet, grows on trees, has seeds.', bin: 'Fruit' },
+  { icon: '🐕', name: 'Dog', desc: 'Four legs, barks, has fur.', bin: 'Animal' },
+  { icon: '🚌', name: 'Bus', desc: 'Carries people on roads.', bin: 'Vehicle' },
+  { icon: '🍇', name: 'Grapes', desc: 'Small juicy fruits in bunches.', bin: 'Fruit' },
+  { icon: '🐦', name: 'Parrot', desc: 'Feathers, wings, can fly.', bin: 'Animal' },
+  { icon: '🚗', name: 'Car', desc: 'Four wheels and an engine.', bin: 'Vehicle' },
+  { icon: '🍌', name: 'Banana', desc: 'Yellow fruit with a peel.', bin: 'Fruit' },
+  { icon: '🐈', name: 'Cat', desc: 'Whiskers, paws, meows.', bin: 'Animal' },
+  { icon: '🚕', name: 'Taxi', desc: 'A paid road vehicle.', bin: 'Vehicle' },
+] as const;
+
+const trainingRounds = [
+  { icon: '🐶', label: 'Dog' },
+  { icon: '🐱', label: 'Cat' },
+  { icon: '🐦', label: 'Bird' },
+  { icon: '🐶', label: 'Dog' },
+  { icon: '🐱', label: 'Cat' },
+  { icon: '🐦', label: 'Bird' },
+] as const;
+
+const sentimentMessages: { text: string; sentiment: Sentiment; hint: string }[] = [
+  { text: 'I absolutely love this new phone! Best purchase ever.', sentiment: 'Positive', hint: 'Words like love and best show a happy opinion.' },
+  { text: 'The train arrives at 3pm.', sentiment: 'Neutral', hint: 'This is a fact. It does not show a feeling.' },
+  { text: 'This movie was a complete waste of time.', sentiment: 'Negative', hint: 'Waste of time signals disappointment.' },
+  { text: 'The weather today is partly cloudy.', sentiment: 'Neutral', hint: 'Weather facts are usually neutral.' },
+  { text: 'Captain Nova saved NeoCity and it was incredible!', sentiment: 'Positive', hint: 'Incredible is a strong positive word.' },
+  { text: "The system crashed again. I'm so frustrated.", sentiment: 'Negative', hint: 'Frustrated is a negative emotion.' },
+];
+
+const workflowSteps = [
+  '🎯 Define the Problem',
+  '📥 Collect Data',
+  '🧹 Clean & Prepare Data',
+  '🏋️ Train the Model',
+  '🧪 Test & Evaluate',
+] as const;
+
+const cardStyle: CSSProperties = {
+  borderRadius: 28,
+  border: '1px solid rgba(255,255,255,0.08)',
+  backdropFilter: 'blur(16px)',
+  background: 'rgba(16, 28, 46, 0.95)',
+  padding: 24,
+  boxShadow: '0 24px 70px rgba(0,0,0,0.35)',
+};
+
+const primaryBtn: CSSProperties = {
+  borderRadius: 16,
+  padding: '14px 28px',
+  background: 'linear-gradient(135deg, #4b9bff, #8bdcb8)',
+  color: '#03151e',
+  fontWeight: 800,
+  minHeight: 48,
+  minWidth: 48,
+  border: 0,
+  cursor: 'pointer',
+};
+
+const ghostBtn: CSSProperties = {
+  borderRadius: 16,
+  padding: '13px 18px',
+  background: 'rgba(255,255,255,0.075)',
+  color: '#f7fbff',
+  border: '1px solid rgba(255,255,255,0.1)',
+  minHeight: 48,
+  minWidth: 48,
+  cursor: 'pointer',
+};
+
+const novaGateStyle: CSSProperties = {
+  minHeight: 'calc(100vh - 104px)',
+  display: 'grid',
+  placeItems: 'center',
+  textAlign: 'center',
+};
+
+const novaBubbleStyle: CSSProperties = {
+  ...cardStyle,
+  maxWidth: 820,
+  textAlign: 'left',
+  border: '1px solid rgba(75,255,165,0.24)',
+};
+
+const novaNameStyle: CSSProperties = {
+  display: 'block',
+  color: '#4bffa5',
+  fontWeight: 900,
+  marginBottom: 10,
+};
+
+function clamp(n: number, min = 0, max = 100) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function playSound(type: SoundType) {
+  try {
+    const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioContextCtor();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const configs = {
+      click: { freq: 880, type: 'sine', duration: 0.08, vol: 0.15 },
+      drop: { freq: 523, type: 'sine', duration: 0.18, vol: 0.2 },
+      success: { freq: 659, type: 'triangle', duration: 0.35, vol: 0.25 },
+      error: { freq: 220, type: 'sawtooth', duration: 0.2, vol: 0.15 },
+      power: { freq: 440, type: 'square', duration: 0.12, vol: 0.1 },
+    } as const;
+    const c = configs[type];
+    osc.type = c.type;
+    osc.frequency.setValueAtTime(c.freq, ctx.currentTime);
+    gain.gain.setValueAtTime(c.vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + c.duration);
+    osc.start();
+    osc.stop(ctx.currentTime + c.duration);
+  } catch {
+    // Audio is optional. Some browsers block it until a user gesture.
+  }
+}
+
+function useCountUp(value: number) {
+  const [display, setDisplay] = useState(value);
+
+  useEffect(() => {
+    const start = display;
+    const diff = value - start;
+    if (diff === 0) return;
+    let frame = 0;
+    const total = 22;
+    const id = window.setInterval(() => {
+      frame += 1;
+      const eased = 1 - Math.pow(1 - frame / total, 3);
+      setDisplay(Math.round(start + diff * eased));
+      if (frame >= total) window.clearInterval(id);
+    }, 18);
+    return () => window.clearInterval(id);
+  }, [value]);
+
+  return display;
+}
+
 function GlobalStyles() {
   return (
-    <style dangerouslySetInnerHTML={{ __html: `
-      * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-      body { margin: 0; background-color: ${COLORS.bg}; color: ${COLORS.textPrimary}; overflow-x: hidden; }
-      button { cursor: pointer; transition: all 0.2s ease-in-out; border: none; }
-      button:active { transform: scale(0.95) !important; }
-      
-      @keyframes float { from { transform: translateY(0); } to { transform: translateY(-15px); } }
+    <style>{`
+      * { box-sizing: border-box; }
+      html, body, #root { min-height: 100%; margin: 0; }
+      body {
+        background:
+          radial-gradient(circle at 18% 12%, rgba(75,155,255,.25), transparent 28%),
+          radial-gradient(circle at 86% 75%, rgba(75,255,165,.14), transparent 26%),
+          linear-gradient(135deg, #07101e 0%, #0b172d 54%, #08101f 100%);
+        color: #f7fbff;
+        font-family: "Trebuchet MS", "Avenir Next", Verdana, sans-serif;
+      }
+      button, input { font: inherit; }
+      button { transition: transform .18s ease, filter .18s ease, border-color .18s ease; }
+      button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.08); }
+      button:disabled { cursor: default; opacity: .55; }
+      .app { min-height: 100vh; display: grid; grid-template-columns: 292px 1fr; }
+      .sidebar {
+        position: sticky; top: 0; height: 100vh; overflow: auto; padding: 22px 18px;
+        border-right: 1px solid rgba(255,255,255,.09);
+        background: rgba(7,16,31,.88); backdrop-filter: blur(18px); z-index: 5;
+      }
+      .brand { display:flex; gap:12px; align-items:center; margin-bottom:22px; }
+      .brandMark {
+        width:52px; height:52px; border-radius:18px; display:grid; place-items:center;
+        background: conic-gradient(from 180deg, #4bffa5, #4b9bff, #b989ff, #4bffa5);
+        box-shadow: 0 0 36px rgba(75,155,255,.34); color:#06111f; font-size:1.6rem;
+      }
+      .content { min-width:0; padding:28px; }
+      .stage {
+        min-height: calc(100vh - 56px); position:relative; overflow:hidden;
+        border: 1px solid rgba(255,255,255,.08); border-radius:30px; padding:26px;
+        background:
+          linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+          rgba(7,16,31,.52);
+        background-size:44px 44px;
+        box-shadow: inset 0 0 110px rgba(75,155,255,.09);
+      }
+      .grid { display:grid; gap:16px; }
+      .cols2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .cols3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .cols4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+      .sectionHead { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; margin-bottom:20px; }
+      .kicker { color:#4bffa5; text-transform:uppercase; letter-spacing:.12em; font-size:.76rem; font-weight:900; }
+      h1, h2, h3 { letter-spacing:0; }
+      h2 { margin:5px 0 0; font-size:clamp(1.8rem,3vw,3.1rem); line-height:1.03; }
+      .sub { color:#b6c7dc; line-height:1.55; }
+      .small { color:#b6c7dc; font-size:.92rem; line-height:1.45; }
+      .tile {
+        min-height:104px; min-width:48px; border-radius:22px; border:1px solid rgba(255,255,255,.1);
+        color:#f7fbff; background:linear-gradient(145deg, rgba(255,255,255,.11), rgba(255,255,255,.035));
+        display:grid; place-items:center; text-align:center; padding:14px; cursor:pointer;
+      }
+      .tile.selected { border-color:rgba(75,255,165,.7); background:rgba(75,155,255,.16); }
+      .emoji { display:block; font-size:2.45rem; margin-bottom:8px; }
+      .bar { height:12px; border-radius:99px; background:rgba(255,255,255,.09); overflow:hidden; }
+      .bar span { display:block; height:100%; width:0%; border-radius:inherit; background:linear-gradient(90deg,#4b9bff,#4bffa5); transition:width .45s ease; }
+      .banner {
+        display:inline-flex; align-items:center; gap:10px; padding:12px 18px; border-radius:16px;
+        background:rgba(94,252,130,.15); border:1px solid rgba(94,252,130,.42);
+        color:#4bffa5; font-weight:900; animation: slideUp .4s ease both, readyPulse 1.4s ease infinite;
+      }
+      .hint { min-height:28px; color:#ffd76a; margin-top:12px; font-weight:800; }
+      .map { display:grid; gap:8px; margin-top:12px; }
+      .map button {
+        width:100%; display:grid; grid-template-columns:24px 1fr auto; gap:8px; align-items:center;
+        padding:10px 12px; border-radius:16px; background:rgba(255,255,255,.045);
+        border:1px solid transparent; color:#b6c7dc; text-align:left; min-height:48px; cursor:pointer;
+      }
+      .map button.current { border-color:rgba(75,155,255,.55); color:#f7fbff; background:rgba(75,155,255,.12); }
+      .map button.done { color:#4bffa5; }
+      .map button.locked { opacity:.42; cursor:default; }
+      .conveyor {
+        min-height:190px; display:grid; place-items:center; border-radius:24px;
+        border:1px dashed rgba(255,255,255,.16);
+        background:repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 20px, transparent 20px 42px);
+        overflow:hidden;
+      }
+      .itemCard { width:min(360px, 100%); animation:slideInLeft .45s ease both; }
+      .count {
+        position:absolute; top:12px; right:12px; width:34px; height:34px; border-radius:50%;
+        background:#4b9bff; color:#06111f; display:grid; place-items:center; font-weight:900;
+      }
+      .camera {
+        position:relative; min-height:430px; overflow:hidden;
+        background:radial-gradient(circle at 50% 50%, rgba(75,155,255,.08), transparent 38%),
+          repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 2px, transparent 2px 5px), #07101f;
+      }
+      .scanLine { position:absolute; left:0; right:0; top:0; height:3px; background:#4bffa5; box-shadow:0 0 24px #4bffa5; animation:scanLine 2s linear infinite; }
+      .object {
+        position:absolute; width:86px; height:86px; border-radius:22px; background:rgba(255,255,255,.05);
+        border:1px solid rgba(255,255,255,.09); display:grid; place-items:center; font-size:2.6rem;
+      }
+      .boxLock { position:absolute; inset:-4px; border:3px solid #4bffa5; border-radius:24px; animation:drawBorder .4s ease both; pointer-events:none; }
+      .tag {
+        position:absolute; top:-27px; left:0; white-space:nowrap; font-size:.72rem;
+        background:#4bffa5; color:#04151f; padding:5px 8px; border-radius:8px; font-weight:900;
+      }
+      .chatBubble {
+        max-width:760px; padding:18px 20px; border-radius:24px 24px 24px 8px;
+        background:rgba(75,155,255,.14); border:1px solid rgba(75,155,255,.22); line-height:1.55;
+      }
+      .svgBox { width:100%; max-width:460px; height:auto; border-radius:22px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); }
+      input[type="range"] { width:100%; accent-color:#4bffa5; min-height:48px; }
+      .shake { animation:shake .42s ease; }
+      .celebrate { animation:celebrate .45s ease; }
+      .timer span { animation:timerRun 15s linear forwards; }
+      .confetti {
+        position:fixed; top:-20px; width:10px; height:16px; z-index:50;
+        animation:confettiFall 4s linear forwards; pointer-events:none;
+      }
+      @keyframes float { from { transform: translateY(0); } to { transform: translateY(-20px); } }
       @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
       @keyframes slideUp { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -73,110 +331,19 @@ function GlobalStyles() {
       @keyframes readyPulse { 0%,100%{box-shadow:0 0 0 0 rgba(94,252,130,0.3)} 50%{box-shadow:0 0 0 10px rgba(94,252,130,0)} }
       @keyframes flowDot { from{stroke-dashoffset:100} to{stroke-dashoffset:0} }
       @keyframes radialPulse { 0%{transform:scale(0);opacity:0.8} 100%{transform:scale(2.5);opacity:0} }
-      
-      .shake { animation: shake 0.4s ease-in-out; }
-      .celebrate { animation: celebrate 0.5s ease-in-out; }
-    ` }} />
+      @keyframes timerRun { from { width:100%; } to { width:0%; } }
+      @media (max-width: 920px) {
+        .app { grid-template-columns:1fr; }
+        .sidebar { position:relative; height:auto; }
+        .content { padding:14px; }
+        .stage { min-height:70vh; padding:18px; border-radius:24px; }
+        .cols2, .cols3, .cols4 { grid-template-columns:1fr; }
+        .sectionHead { display:block; }
+      }
+    `}</style>
   );
 }
 
-function playSound(type: 'click' | 'drop' | 'success' | 'error' | 'power') {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    const configs = {
-      click:   { freq: 880, type: 'sine',    duration: 0.08, vol: 0.15 },
-      drop:    { freq: 523, type: 'sine',    duration: 0.18, vol: 0.2  },
-      success: { freq: 659, type: 'triangle',duration: 0.35, vol: 0.25 },
-      error:   { freq: 220, type: 'sawtooth',duration: 0.2,  vol: 0.15 },
-      power:   { freq: 440, type: 'square',  duration: 0.12, vol: 0.1  },
-    };
-    const c = configs[type];
-    osc.type = c.type as OscillatorType;
-    osc.frequency.setValueAtTime(c.freq, ctx.currentTime);
-    gain.gain.setValueAtTime(c.vol, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + c.duration);
-    osc.start();
-    osc.stop(ctx.currentTime + c.duration);
-  } catch {}
-}
-
-// ============================================================================
-// STYLES & LAYOUT CONSTANTS
-// ============================================================================
-const cardStyle: React.CSSProperties = {
-  backgroundColor: COLORS.cardBg,
-  borderRadius: '24px',
-  border: '1px solid rgba(255,255,255,0.08)',
-  backdropFilter: 'blur(16px)',
-  padding: '24px',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-  animation: 'slideUp 0.5s ease-out forwards',
-};
-
-const primaryBtn: React.CSSProperties = {
-  borderRadius: '16px',
-  padding: '14px 28px',
-  background: 'linear-gradient(135deg, #4b9bff, #8bdcb8)',
-  color: '#03151e',
-  fontWeight: 700,
-  fontSize: '1rem',
-  minHeight: '48px',
-  minWidth: '120px',
-  boxShadow: '0 4px 12px rgba(75,155,255,0.3)',
-};
-
-const choiceBtn: React.CSSProperties = {
-  minHeight: '52px',
-  minWidth: '48px',
-  padding: '12px 20px',
-  borderRadius: '14px',
-  backgroundColor: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.1)',
-  color: COLORS.textPrimary,
-  fontWeight: 600,
-  fontSize: '0.95rem',
-};
-
-const novaGateStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '24px',
-  padding: '40px',
-  textAlign: 'center',
-  maxWidth: '650px',
-  margin: '40px auto',
-  backgroundColor: 'rgba(11, 24, 44, 0.85)',
-  borderRadius: '24px',
-  border: '1px solid rgba(75, 155, 255, 0.2)',
-};
-
-const novaBubbleStyle: React.CSSProperties = {
-  backgroundColor: 'rgba(20, 38, 66, 0.9)',
-  borderLeft: `4px solid ${COLORS.accent}`,
-  padding: '20px',
-  borderRadius: '12px',
-  textAlign: 'left',
-  width: '100%',
-};
-
-const novaNameStyle: React.CSSProperties = {
-  display: 'block',
-  fontWeight: 'bold',
-  color: COLORS.accent,
-  marginBottom: '8px',
-  fontSize: '0.9rem',
-  textTransform: 'uppercase',
-  letterSpacing: '1px',
-};
-
-// ============================================================================
-// SHARED UI COMPONENTS
-// ============================================================================
 function NovaGate({ lines, onDone }: { lines: string[]; onDone: () => void }) {
   const [idx, setIdx] = useState(0);
   const [text, setText] = useState('');
@@ -189,1713 +356,1174 @@ function NovaGate({ lines, onDone }: { lines: string[]; onDone: () => void }) {
     }
     let i = 0;
     setText('');
-    const t = setInterval(() => {
-      if (i < lines[idx].length) {
-        setText(p => p + lines[idx][i]);
-        i++;
-      } else {
-        clearInterval(t);
-        setTimeout(() => setIdx(p => p + 1), 1000);
+    const t = window.setInterval(() => {
+      setText((p) => p + lines[idx][i]);
+      i += 1;
+      if (i >= lines[idx].length) {
+        window.clearInterval(t);
+        window.setTimeout(() => setIdx((p) => p + 1), 700);
       }
-    }, 20);
-    return () => clearInterval(t);
+    }, 22);
+    return () => window.clearInterval(t);
   }, [idx, lines]);
 
   return (
     <div style={novaGateStyle}>
-      <div style={{ fontSize: '3.5rem', animation: 'float 2.5s ease-in-out infinite alternate' }}>🚀</div>
-      <div style={novaBubbleStyle}>
-        <span style={novaNameStyle}>Captain Nova</span>
-        <p style={{ margin: 0, color: '#d8eeff', fontSize: '1.05rem', lineHeight: 1.7 }}>
-          {text}<span style={{ animation: 'blink 0.9s step-end infinite', color: '#4bffa5' }}>▋</span>
-        </p>
+      <div style={{ display: 'grid', justifyItems: 'center', gap: 18 }}>
+        <div style={{ fontSize: '3.5rem', animation: 'float 3s ease-in-out infinite alternate' }}>🚀</div>
+        <div style={novaBubbleStyle}>
+          <span style={novaNameStyle}>Captain Nova</span>
+          <p style={{ margin: 0, color: '#d8eeff', fontSize: '1.05rem', lineHeight: 1.7 }}>
+            {text}<span style={{ animation: 'blink 0.9s step-end infinite', color: '#4bffa5' }}>▌</span>
+          </p>
+        </div>
+        {done && <button style={primaryBtn} onClick={onDone}>Let's Go →</button>}
       </div>
-      {done && (
-        <button style={primaryBtn} onClick={() => { playSound('click'); onDone(); }}>
-          Let's Go →
-        </button>
-      )}
     </div>
   );
 }
 
-// Custom Counter Hook Mock to achieve CountUp smoothly
-function useCountUp(target: number) {
-  const [count, setCount] = useState(target);
-  useEffect(() => {
-    if (count === target) return;
-    const diff = target - count;
-    const step = diff > 0 ? Math.ceil(diff / 5) : Math.floor(diff / 5);
-    const timer = setTimeout(() => setCount(p => p + step), 40);
-    return () => clearTimeout(timer);
-  }, [target, count]);
-  return count;
+function SectionHeader({ section, note }: { section: MissionKey; note: string }) {
+  return (
+    <div className="sectionHead">
+      <div>
+        <div className="kicker">Mission {missionKeys.indexOf(section) + 1}</div>
+        <h2>{sectionTitles[section]}</h2>
+        <p className="sub" style={{ maxWidth: 760, marginTop: 8 }}>{note}</p>
+      </div>
+      <div className="banner">NeoCity Link Active</div>
+    </div>
+  );
 }
 
-// ============================================================================
-// SECTION 1: WHAT IS AI
-// ============================================================================
-interface S1Item { id: string; emoji: string; label: string; isAI: boolean; hint: string; }
-const S1_ITEMS: S1Item[] = [
-  { id: '1', emoji: '🎙️', label: 'Siri', isAI: true, hint: 'Siri continuously translates and reacts to complex human speech patterns!' },
-  { id: '2', emoji: '♟️', label: 'Chess Robot', isAI: true, hint: 'Chess engines analyze moves ahead based on vast strategical search models.' },
-  { id: '3', emoji: '🔢', label: 'Calculator', isAI: false, hint: 'Calculators use hardwired, fixed mathematical logic circuits. They cannot learn.' },
-  { id: '4', emoji: '📧', label: 'Spam Filter', isAI: true, hint: 'Modern spam systems actively adjust filters as novel scam phrasing appears.' },
-  { id: '5', emoji: '🌡️', label: 'Thermostat', isAI: false, hint: 'A classic mechanical thermostat simply shuts off when a threshold target is met.' },
-  { id: '6', emoji: '🌐', label: 'Translator', isAI: true, hint: 'Language translation handles contextual syntax fluidly from large text corpora.' },
-  { id: '7', emoji: '🚗', label: 'Self-Driving', isAI: true, hint: 'Autonomous vehicles process live computer vision frames dynamically to navigate safely.' },
-  { id: '8', emoji: '⏰', label: 'Alarm Clock', isAI: false, hint: 'An alarm clock checks the target time against absolute system clock variables.' },
-  { id: '9', emoji: '🎵', label: 'Music Recs', isAI: true, hint: 'Streaming engines learn your personal sonic habits to make custom predictions.' },
-];
+function ProgressBar({ value, color }: { value: number; color?: string }) {
+  return (
+    <div className="bar">
+      <span style={{ width: `${clamp(value)}%`, background: color }} />
+    </div>
+  );
+}
 
-function WhatIsAISection({ onComplete }: { onComplete: () => void }) {
-  const [gateOpen, setGateOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [items, setItems] = useState<S1Item[]>(S1_ITEMS);
-  const [assigned, setAssigned] = useState<Record<string, 'AI' | 'NOT_AI'>>({});
-  const [confidence, setConfidence] = useState(20);
-  const [novaHint, setNovaHint] = useState<string>('Select an item from the grid, then map it into a target pipeline core below.');
-  const [shakeId, setShakeId] = useState<string | null>(null);
+function StatCard({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ ...cardStyle, padding: 16, marginBottom: 14, borderRadius: 24 }}>
+      <div className="kicker" style={{ color: '#b6c7dc', fontSize: '.72rem' }}>{label}</div>
+      {children}
+    </div>
+  );
+}
 
-  if (!gateOpen) {
-    return (
-      <NovaGate
-        lines={[
-          "Welcome to the Outer Rim, Explorer! NeoCity's central classifier grid has crashed.",
-          "We need to sort active technologies. Remember: If it relies on fixed rules, it's conventional logic. If it learns dynamically from historical datasets, it's Artificial Intelligence!",
-        ]}
-        onDone={() => setGateOpen(true)}
-      />
-    );
+function Sidebar({
+  xp,
+  completed,
+  currentSection,
+  onNavigate,
+}: {
+  xp: number;
+  completed: MissionKey[];
+  currentSection: SectionKey;
+  onNavigate: (section: SectionKey) => void;
+}) {
+  const shownXp = useCountUp(xp);
+  const doneCount = completed.length;
+  const progress = (doneCount / missionKeys.length) * 100;
+  const badge = doneCount >= 10 ? 'Core Hero' : doneCount >= 6 ? 'Model Maker' : doneCount >= 3 ? 'Data Ranger' : 'Junior Explorer';
+
+  function unlocked(section: SectionKey) {
+    if (section === 'landing') return true;
+    const index = sectionOrder.indexOf(section);
+    const prev = sectionOrder[index - 1];
+    return prev === 'landing' || completed.includes(prev as MissionKey) || completed.includes(section as MissionKey);
   }
-
-  const handleLabel = (zone: 'AI' | 'NOT_AI') => {
-    if (!selectedId) return;
-    const current = items.find(i => i.id === selectedId);
-    if (!current) return;
-
-    const correct = (zone === 'AI' && current.isAI) || (zone === 'NOT_AI' && !current.isAI);
-    if (correct) {
-      playSound('drop');
-      setAssigned(prev => ({ ...prev, [selectedId]: zone }));
-      setConfidence(p => Math.min(100, p + 10));
-      setNovaHint(`Spot on! ${current.label} successfully classified.`);
-      setSelectedId(null);
-    } else {
-      playSound('error');
-      setShakeId(selectedId);
-      setConfidence(p => Math.max(0, p - 5));
-      setNovaHint(`Not quite! ${current.hint}`);
-      setTimeout(() => setShakeId(null), 500);
-    }
-  };
-
-  const remainingCount = items.filter(i => !assigned[i.id]).length;
 
   return (
-    <div style={cardStyle}>
-      <h2 style={{ color: COLORS.accent, margin: '0 0 8px 0' }}>District 1: Neural Classifier Core</h2>
-      <p style={{ color: COLORS.textSecondary, marginBottom: '24px' }}>Map items below into their appropriate operative profiles.</p>
-
-      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '24px', borderLeft: '4px solid #ffaa00' }}>
-        <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#ffaa00', display: 'block', marginBottom: '4px' }}>📡 SYSTEM LOG</span>
-        <p style={{ margin: 0, fontSize: '0.95rem', color: COLORS.textPrimary }}>{novaHint}</p>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '32px' }}>
-        {items.map(item => {
-          const isAssigned = !!assigned[item.id];
-          const isSelected = selectedId === item.id;
-          if (isAssigned) return null;
-
-          return (
-            <button
-              key={item.id}
-              onClick={() => { playSound('click'); setSelectedId(item.id); }}
-              className={shakeId === item.id ? 'shake' : ''}
-              style={{
-                ...choiceBtn,
-                height: '80px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: '4px',
-                borderColor: isSelected ? COLORS.accent : 'rgba(255,255,255,0.1)',
-                backgroundColor: isSelected ? 'rgba(75, 155, 255, 0.15)' : 'rgba(255,255,255,0.03)',
-                transform: isSelected ? 'scale(1.05)' : 'none',
-              }}
-            >
-              <span style={{ fontSize: '1.6rem' }}>{item.emoji}</span>
-              <span style={{ fontSize: '0.8rem' }}>{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '24px' }}>
-        <button
-          onClick={() => handleLabel('AI')}
-          disabled={!selectedId}
-          style={{
-            ...choiceBtn,
-            flex: 1,
-            height: '70px',
-            background: 'linear-gradient(180deg, rgba(75,155,255,0.1) 0%, rgba(75,155,255,0.2) 100%)',
-            border: `2px dashed ${selectedId ? COLORS.accent : 'rgba(255,255,255,0.1)'}`,
-            opacity: selectedId ? 1 : 0.6,
-          }}
-        >
-          🧠 Learns From Data (AI)
-        </button>
-        <button
-          onClick={() => handleLabel('NOT_AI')}
-          disabled={!selectedId}
-          style={{
-            ...choiceBtn,
-            flex: 1,
-            height: '70px',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.08) 100%)',
-            border: `2px dashed ${selectedId ? '#b6c7dc' : 'rgba(255,255,255,0.1)'}`,
-            opacity: selectedId ? 1 : 0.6,
-          }}
-        >
-          ⚙️ Follows Fixed Rules (Not AI)
-        </button>
-      </div>
-
-      <div style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.85rem' }}>
-          <span>AI Model Confidence</span>
-          <span style={{ color: COLORS.success, fontWeight: 'bold' }}>{confidence}%</span>
-        </div>
-        <div style={{ width: '100%', height: '12px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '6px', overflow: 'hidden' }}>
-          <div style={{ width: `${confidence}%`, height: '100%', background: 'linear-gradient(90deg, #4b9bff, #5efc82)', transition: 'width 0.4s ease' }} />
+    <aside className="sidebar">
+      <div className="brand">
+        <div className="brandMark">⚡</div>
+        <div>
+          <h1 style={{ fontSize: '1.05rem', margin: 0 }}>NeoCity AI Adventure</h1>
+          <p className="small" style={{ margin: '3px 0 0' }}>CBSE Class 7 Mission Deck</p>
         </div>
       </div>
-
-      {remainingCount === 0 && (
-        <div style={{ textAlign: 'center', marginTop: '24px', animation: 'celebrate 0.6s ease' }}>
-          <div style={{ color: COLORS.success, fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '8px' }}>🤖 AI TRAINED SUCCESSFULLY!</div>
-          <p style={{ color: COLORS.textSecondary, fontSize: '0.9rem', marginBottom: '16px' }}>
-            You just mapped an AI classification structure. This matrix logic underlies recommendation engines like YouTube!
-          </p>
-          <button style={primaryBtn} onClick={() => { playSound('success'); onComplete(); }}>
-            Advance Mission →
-          </button>
+      <StatCard label="XP">
+        <div style={{ fontSize: '2.3rem', fontWeight: 900, color: '#4bffa5', marginTop: 8 }}>{shownXp}</div>
+      </StatCard>
+      <StatCard label="City Power">
+        <div style={{ marginTop: 10 }}><ProgressBar value={progress} /></div>
+        <p className="small">{Math.round(progress)}% restored</p>
+      </StatCard>
+      <StatCard label="Badge">
+        <h3 style={{ margin: '8px 0 0' }}>{badge}</h3>
+      </StatCard>
+      <StatCard label="Mission Map">
+        <div className="map">
+          {sectionOrder.map((section, index) => {
+            const isDone = section !== 'landing' && completed.includes(section as MissionKey);
+            const isUnlocked = unlocked(section);
+            return (
+              <button
+                key={section}
+                className={`${currentSection === section ? 'current' : ''} ${isDone ? 'done' : ''} ${!isUnlocked ? 'locked' : ''}`}
+                disabled={!isUnlocked}
+                onClick={() => onNavigate(section)}
+              >
+                <span>{isDone ? '✓' : isUnlocked ? '●' : '🔒'}</span>
+                <span>{sectionTitles[section]}</span>
+                <small>{index || ''}</small>
+              </button>
+            );
+          })}
         </div>
-      )}
+      </StatCard>
+    </aside>
+  );
+}
+
+function LandingScreen({ onStart }: { onStart: () => void }) {
+  return (
+    <div style={{ minHeight: 'calc(100vh - 108px)', display: 'grid', alignContent: 'center', gap: 22, maxWidth: 980 }}>
+      <div className="kicker">Captain Nova Transmission</div>
+      <h2 style={{ fontSize: 'clamp(3.2rem, 8vw, 6.6rem)', margin: 0 }}>Restore the broken AI city.</h2>
+      <p className="sub" style={{ fontSize: '1.15rem', maxWidth: 820 }}>
+        NeoCity's smart systems are offline. Travel district by district, train models, detect patterns, decode language, and bring the AI Core back to life.
+      </p>
+      <div>
+        <button style={primaryBtn} onClick={onStart}>Start Mission</button>
+      </div>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {['🧠 Classify', '👁️ Detect', '💬 Read language', '📈 Predict', '🧩 Cluster'].map((tag) => (
+          <span key={tag} className="banner" style={{ animation: 'slideUp .4s ease both' }}>{tag}</span>
+        ))}
+      </div>
     </div>
   );
 }
 
-// ============================================================================
-// SECTION 2: CLASSIFICATION FACTORY
-// ============================================================================
-interface S2Item { emoji: string; label: string; desc: string; category: 'Fruit' | 'Animal' | 'Vehicle'; }
-const S2_ITEMS: S2Item[] = [
-  { emoji: '🍎', label: 'Apple', desc: 'Crisp tree crop containing natural sugars and seeds.', category: 'Fruit' },
-  { emoji: '🐕', label: 'Dog', desc: 'Four-legged domesticated mammal that displays canine traits.', category: 'Animal' },
-  { emoji: '🚌', label: 'Bus', desc: 'Large high-capacity motor vehicle engineered for public roads.', category: 'Vehicle' },
-  { emoji: '🍇', label: 'Grapes', desc: 'Small clustered vine berries used worldwide for juices.', category: 'Fruit' },
-  { emoji: '🐦', label: 'Parrot', desc: 'Feathered avian lifeform that can imitate complex acoustic patterns.', category: 'Animal' },
-  { emoji: '🚗', label: 'Car', desc: 'Compact internal combustion or electric private passenger transport.', category: 'Vehicle' },
-  { emoji: '🍌', label: 'Banana', desc: 'Tropical herbaceous plant product known for rich potassium levels.', category: 'Fruit' },
-  { emoji: '🐈', label: 'Cat', desc: 'Carnivorous agile domestic pet specialized in hunt behaviors.', category: 'Animal' },
-  { emoji: '🚕', label: 'Taxi', desc: 'Commercial transport car with yellow hazard signaling frames.', category: 'Vehicle' },
-];
-
-function ClassificationSection({ onComplete }: { onComplete: () => void }) {
+function WhatIsAISection({ onComplete }: { onComplete: CompleteHandler }) {
   const [gateOpen, setGateOpen] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [counts, setCounts] = useState({ Fruit: 0, Animal: 0, Vehicle: 0 });
-  const [shake, setShake] = useState(false);
-  const [novaMessage, setNovaMessage] = useState('Inspect each raw data packet on the belt, and sort it to its categorical bin.');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [labelled, setLabelled] = useState<Record<string, true>>({});
+  const [confidence, setConfidence] = useState(20);
+  const [hint, setHint] = useState('');
+  const [shakeId, setShakeId] = useState('');
 
   if (!gateOpen) {
-    return (
-      <NovaGate
-        lines={[
-          "Great job in District 1! Now we have arrived at the Sorting Terminal.",
-          "AI structures group unfamiliar data using categorical tagging features. Let's see how raw text definitions map cleanly into high-level categories.",
-        ]}
-        onDone={() => setGateOpen(true)}
-      />
-    );
+    return <NovaGate lines={["NeoCity's recommendation engines are confused.", 'Label tools as AI or fixed rules so the city classifier can learn.']} onDone={() => setGateOpen(true)} />;
   }
 
-  const handleSort = (chosen: 'Fruit' | 'Animal' | 'Vehicle') => {
-    if (currentIndex >= S2_ITEMS.length) return;
-    const currentItem = S2_ITEMS[currentIndex];
+  const remaining = aiItems.filter((item) => !labelled[item.id]);
+  const trained = Object.keys(labelled).length === aiItems.length;
 
-    if (chosen === currentItem.category) {
+  function label(kind: 'ai' | 'rules') {
+    if (!selected) {
+      setHint('Select a card first.');
+      return;
+    }
+    const item = aiItems.find((entry) => entry.id === selected);
+    if (!item) return;
+    if (item.kind === kind) {
       playSound('drop');
-      setCounts(p => ({ ...p, [chosen]: p[chosen] + 1 }));
-      setNovaMessage(`Perfectly filtered! ${currentItem.label} routed to the ${chosen} hub.`);
-      setCurrentIndex(p => p + 1);
+      setLabelled((prev) => ({ ...prev, [item.id]: true }));
+      setSelected(null);
+      setHint('');
+      setConfidence(Object.keys(labelled).length + 1 === aiItems.length ? 100 : clamp(confidence + 10));
+    } else {
+      playSound('error');
+      setShakeId(item.id);
+      setHint(item.hint);
+      setConfidence((prev) => clamp(prev - 5));
+      window.setTimeout(() => setShakeId(''), 450);
+    }
+  }
+
+  return (
+    <>
+      <SectionHeader section="whatIsAI" note="Tap an item, then choose whether it learns from data or follows fixed rules." />
+      <div className="grid cols3">
+        {remaining.map((item) => (
+          <button
+            key={item.id}
+            className={`tile ${selected === item.id ? 'selected' : ''} ${shakeId === item.id ? 'shake' : ''}`}
+            onClick={() => {
+              setSelected(item.id);
+              playSound('click');
+            }}
+          >
+            <span className="emoji">{item.icon}</span>
+            <b>{item.name}</b>
+          </button>
+        ))}
+      </div>
+      <div className="grid cols2" style={{ marginTop: 18 }}>
+        <button className={`tile ${trained ? 'celebrate' : ''}`} style={{ borderColor: 'rgba(94,252,130,.35)' }} onClick={() => label('ai')}>
+          <span className="emoji">🧠</span><b>Learns from data</b><span className="small">AI</span>
+        </button>
+        <button className={`tile ${trained ? 'celebrate' : ''}`} style={{ borderColor: 'rgba(75,155,255,.35)' }} onClick={() => label('rules')}>
+          <span className="emoji">⚙️</span><b>Follows fixed rules</b><span className="small">Not AI</span>
+        </button>
+      </div>
+      <div style={{ ...cardStyle, marginTop: 18 }}>
+        <b>AI model confidence: {confidence}%</b>
+        <div style={{ marginTop: 10 }}><ProgressBar value={confidence} /></div>
+        {trained ? (
+          <>
+            <p className="banner" style={{ marginTop: 16 }}>🤖 AI TRAINED!</p>
+            <p className="small">You just trained an AI classifier. That's exactly how YouTube learns to recommend videos.</p>
+            <button style={primaryBtn} onClick={onComplete}>Power Next District</button>
+          </>
+        ) : <p className="hint">{hint}</p>}
+      </div>
+    </>
+  );
+}
+
+function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [counts, setCounts] = useState<Record<'Fruit' | 'Animal' | 'Vehicle', number>>({ Fruit: 0, Animal: 0, Vehicle: 0 });
+  const [hint, setHint] = useState('');
+  const [wrongBin, setWrongBin] = useState('');
+
+  if (!gateOpen) {
+    return <NovaGate lines={['The factory conveyor is moving again.', 'Classify each object by its features and the bins will teach the model.']} onDone={() => setGateOpen(true)} />;
+  }
+
+  const done = index >= factoryItems.length;
+  const current = factoryItems[index];
+
+  function choose(bin: 'Fruit' | 'Animal' | 'Vehicle') {
+    if (!current) return;
+    if (current.bin === bin) {
+      playSound('drop');
+      setCounts((prev) => ({ ...prev, [bin]: prev[bin] + 1 }));
+      setIndex((prev) => prev + 1);
+      setHint('');
+    } else {
+      playSound('error');
+      setWrongBin(bin);
+      setHint('Look at its features. What category fits best?');
+      window.setTimeout(() => setWrongBin(''), 450);
+    }
+  }
+
+  return (
+    <>
+      <SectionHeader section="classification" note="Sort one item at a time and watch the class counts update." />
+      <div className="conveyor">
+        {done ? <div className="banner">Factory bins open!</div> : (
+          <div style={cardStyle} className="itemCard">
+            <span className="emoji">{current.icon}</span>
+            <h3>{current.name}</h3>
+            <p className="small">{current.desc}</p>
+          </div>
+        )}
+      </div>
+      <div className="grid cols3" style={{ marginTop: 18 }}>
+        {(['Fruit', 'Animal', 'Vehicle'] as const).map((bin) => (
+          <button key={bin} className={`tile ${wrongBin === bin ? 'shake' : ''}`} style={{ position: 'relative' }} onClick={() => choose(bin)} disabled={done}>
+            <span className="count">{counts[bin]}</span>
+            <span className="emoji">{bin === 'Fruit' ? '🍎' : bin === 'Animal' ? '🐾' : '🚗'}</span>
+            <b>{bin}</b>
+          </button>
+        ))}
+      </div>
+      <div style={{ ...cardStyle, marginTop: 18 }}>
+        {done ? (
+          <>
+            <BarChart counts={counts} />
+            <p className="small">The AI learned your sorting rule. It can now classify new items it's never seen.</p>
+            <button style={primaryBtn} onClick={onComplete}>Power Next District</button>
+          </>
+        ) : <p className="hint">{hint}</p>}
+      </div>
+    </>
+  );
+}
+
+function BarChart({ counts }: { counts: Record<string, number> }) {
+  const max = Math.max(...Object.values(counts), 1);
+  return (
+    <svg className="svgBox" viewBox="0 0 360 190" role="img" aria-label="Category counts">
+      {Object.entries(counts).map(([key, value], index) => {
+        const height = (value / max) * 110;
+        const fill = index === 0 ? '#5efc82' : index === 1 ? '#4b9bff' : '#ffd76a';
+        return (
+          <g key={key}>
+            <rect x={55 + index * 100} y={145 - height} width="54" height={height} rx="8" fill={fill} />
+            <text x={82 + index * 100} y="168" textAnchor="middle" fill="#f7fbff">{key}</text>
+            <text x={82 + index * 100} y={135 - height} textAnchor="middle" fill="#f7fbff">{value}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function TrainingDataSection({ onComplete }: { onComplete: CompleteHandler }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [round, setRound] = useState(0);
+  const [points, setPoints] = useState<{ label: string }[]>([]);
+  const [hint, setHint] = useState('');
+  const [learning, setLearning] = useState(false);
+
+  if (!gateOpen) {
+    return <NovaGate lines={['The image model is empty.', 'Become the trainer: label examples and watch confidence grow.']} onDone={() => setGateOpen(true)} />;
+  }
+
+  const done = round >= trainingRounds.length;
+  const current = trainingRounds[Math.min(round, trainingRounds.length - 1)];
+  const confidence = done ? 95 : points.length >= 3 ? 81 + points.length * 2 : points.length * 15;
+
+  function label(choice: string) {
+    if (choice === current.label) {
+      playSound('click');
+      setLearning(true);
+      setPoints((prev) => [...prev, { label: choice }]);
+      setHint('AI is learning from your label.');
+      window.setTimeout(() => {
+        setRound((prev) => prev + 1);
+        setLearning(false);
+      }, points.length >= 2 ? 700 : 250);
+    } else {
+      playSound('error');
+      setHint('Match the animal in the camera frame before adding it to training data.');
+    }
+  }
+
+  return (
+    <>
+      <SectionHeader section="trainingData" note="Label camera examples to create training data." />
+      <div className="grid cols2">
+        <div style={{ ...cardStyle, textAlign: 'center' }}>
+          <div className="small">Camera frame</div>
+          <div style={{ fontSize: '7rem', filter: 'drop-shadow(0 0 24px rgba(75,155,255,.45))' }}>{done ? '✅' : current.icon}</div>
+          <div className="grid cols3">
+            {['Dog', 'Cat', 'Bird'].map((labelName) => (
+              <button key={labelName} style={ghostBtn} onClick={() => label(labelName)} disabled={done}>
+                {labelName === 'Dog' ? '🐶' : labelName === 'Cat' ? '🐱' : '🐦'} {labelName}
+              </button>
+            ))}
+          </div>
+          <p className="hint">{hint}</p>
+        </div>
+        <div style={cardStyle}>
+          <h3>Training Chart</h3>
+          <TrainingChart points={points} />
+          {learning && <p className="banner" style={{ marginTop: 12 }}>AI is learning...</p>}
+          <div style={{ marginTop: 16 }}><ProgressBar value={confidence} /></div>
+          <p><b>{done ? 'TRAINING COMPLETE ✅' : points.length >= 3 ? `AI says: ${current.icon} ${current.label} - ${confidence}% confident` : 'Add 3 labels to wake the model.'}</b></p>
+          {done && (
+            <>
+              <p className="small">This is exactly how Google's image recognition was trained: by humans labelling millions of images.</p>
+              <button style={primaryBtn} onClick={onComplete}>Power Next District</button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TrainingChart({ points }: { points: { label: string }[] }) {
+  const color: Record<string, string> = { Dog: '#5efc82', Cat: '#4b9bff', Bird: '#ffd76a' };
+  return (
+    <svg className="svgBox" viewBox="0 0 360 220">
+      {[0, 1, 2, 3].map((i) => <line key={i} x1="30" x2="330" y1={40 + i * 40} y2={40 + i * 40} stroke="rgba(255,255,255,.08)" />)}
+      {points.map((point, index) => (
+        <circle
+          key={`${point.label}-${index}`}
+          cx={60 + index * 45}
+          cy={70 + (point.label === 'Dog' ? 0 : point.label === 'Cat' ? 45 : 90) + (index % 2) * 12}
+          r="10"
+          fill={color[point.label]}
+        >
+          <animate attributeName="r" from="0" to="10" dur=".25s" />
+        </circle>
+      ))}
+    </svg>
+  );
+}
+
+function ComputerVisionSection({ onComplete }: { onComplete: CompleteHandler }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [found, setFound] = useState<string[]>([]);
+  const [hint, setHint] = useState('');
+  const [flash, setFlash] = useState('');
+
+  if (!gateOpen) {
+    return <NovaGate lines={['The vision grid is scanning the city.', 'Detect living things only so NeoCity can protect parks and pedestrians.']} onDone={() => setGateOpen(true)} />;
+  }
+
+  const objects = [
+    { id: 'panda', icon: '🐼', x: 8, y: 15, living: true, label: 'Animal' },
+    { id: 'car', icon: '🚗', x: 43, y: 42, living: false, label: 'car' },
+    { id: 'bird', icon: '🐦', x: 76, y: 18, living: true, label: 'Animal' },
+    { id: 'tree', icon: '🌳', x: 16, y: 70, living: true, label: 'Plant' },
+    { id: 'light', icon: '🚦', x: 70, y: 57, living: false, label: 'traffic light' },
+    { id: 'house', icon: '🏠', x: 82, y: 76, living: false, label: 'house' },
+  ];
+  const done = found.length === 3;
+
+  function detect(item: typeof objects[number]) {
+    if (item.living) {
+      if (!found.includes(item.id)) {
+        playSound('success');
+        setFound((prev) => [...prev, item.id]);
+        setHint('');
+      }
+    } else {
+      playSound('error');
+      setFlash(item.id);
+      setHint(`A ${item.label} isn't alive, so the AI would not flag it as a living creature.`);
+      window.setTimeout(() => setFlash(''), 500);
+    }
+  }
+
+  return (
+    <>
+      <SectionHeader section="computerVision" note="The AI camera needs to detect every living thing. Tap them." />
+      <div style={cardStyle} className="camera">
+        <div className="scanLine" style={done ? { background: '#5efc82', boxShadow: '0 0 32px #5efc82' } : undefined} />
+        {objects.map((item) => (
+          <button
+            key={item.id}
+            className={`object ${flash === item.id ? 'shake' : ''}`}
+            style={{ left: `${item.x}%`, top: `${item.y}%` }}
+            onClick={() => detect(item)}
+          >
+            {flash === item.id ? '❌' : item.icon}
+            {found.includes(item.id) && <span className="boxLock"><span className="tag">DETECTED: {item.label} 🐾</span></span>}
+          </button>
+        ))}
+      </div>
+      <div style={{ ...cardStyle, marginTop: 18 }}>
+        {done ? (
+          <>
+            <div className="banner">VISION LOCK ✅</div>
+            <p className="small">Computer vision is how self-driving cars detect pedestrians, and how Instagram detects faces in your photos.</p>
+            <button style={primaryBtn} onClick={onComplete}>Power Next District</button>
+          </>
+        ) : <p className="hint">{hint}</p>}
+      </div>
+    </>
+  );
+}
+
+function NLPSection({ onComplete }: { onComplete: CompleteHandler }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [confidence, setConfidence] = useState(40);
+  const [hint, setHint] = useState('');
+  const [demo, setDemo] = useState('');
+  const [shake, setShake] = useState(false);
+
+  if (!gateOpen) {
+    return <NovaGate lines={['Language Harbor is full of scrambled messages.', 'Tag the feeling in each sentence and train the NLP beacon.']} onDone={() => setGateOpen(true)} />;
+  }
+
+  const done = index >= sentimentMessages.length;
+  const current = sentimentMessages[index];
+
+  function choose(sentiment: Sentiment) {
+    if (!current) return;
+    if (sentiment === current.sentiment) {
+      playSound('click');
+      setConfidence(index + 1 === sentimentMessages.length ? 100 : confidence + 10);
+      setHint('');
+      window.setTimeout(() => setIndex((prev) => prev + 1), 400);
     } else {
       playSound('error');
       setShake(true);
-      setNovaMessage(`Wait, inspect its properties again. Does that matching profile really fit ${chosen}?`);
-      setTimeout(() => setShake(false), 500);
+      setHint(current.hint);
+      window.setTimeout(() => setShake(false), 450);
     }
-  };
-
-  const finished = currentIndex >= S2_ITEMS.length;
-
-  return (
-    <div style={cardStyle}>
-      <h2 style={{ color: COLORS.accent, margin: '0 0 8px 0' }}>District 2: Classification Factory</h2>
-      <p style={{ color: COLORS.textSecondary, marginBottom: '20px' }}>Process the real-time pipeline feed safely below.</p>
-
-      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '24px' }}>
-        <p style={{ margin: 0, fontSize: '0.95rem', color: COLORS.textPrimary }}>💡 <strong>Nova:</strong> {novaMessage}</p>
-      </div>
-
-      {!finished ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' }}>
-          <div style={{ width: '100%', height: '8px', backgroundColor: '#1a3050', borderRadius: '4px', position: 'relative', marginBottom: '20px' }} />
-          <div
-            className={shake ? 'shake' : ''}
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.05)',
-              border: `2px solid ${COLORS.accent}`,
-              borderRadius: '20px',
-              padding: '24px',
-              maxWidth: '340px',
-              textAlign: 'center',
-              animation: 'slideInLeft 0.3s ease-out',
-            }}
-          >
-            <span style={{ fontSize: '3.5rem', display: 'block', marginBottom: '8px' }}>{S2_ITEMS[currentIndex].emoji}</span>
-            <h3 style={{ margin: '0 0 8px 0', color: COLORS.textPrimary }}>{S2_ITEMS[currentIndex].label}</h3>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: COLORS.textSecondary, lineHeight: 1.5 }}>{S2_ITEMS[currentIndex].desc}</p>
-          </div>
-        </div>
-      ) : (
-        <div style={{ textAlign: 'center', padding: '20px', animation: 'celebrate 0.5s' }}>
-          <h3 style={{ color: COLORS.success, margin: '0 0 16px 0' }}>🌟 CONVEYOR PIPELINE COMPLETED</h3>
-          <div style={{ display: 'flex', justifyContent: 'space-around', gap: '16px', maxWidth: '400px', margin: '0 auto 24px auto' }}>
-            {Object.entries(counts).map(([cat, count]) => (
-              <div key={cat} style={{ background: '#10223b', padding: '12px', borderRadius: '14px', flex: 1 }}>
-                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: COLORS.accent }}>{count}</div>
-                <div style={{ fontSize: '0.8rem', color: COLORS.textMuted }}>{cat}s</div>
-              </div>
-            ))}
-          </div>
-          <button style={primaryBtn} onClick={() => { playSound('success'); onComplete(); }}>
-            Unlock Next Gate →
-          </button>
-        </div>
-      )}
-
-      {!finished && (
-        <div style={{ display: 'flex', gap: '16px' }}>
-          {(['Fruit', 'Animal', 'Vehicle'] as const).map(cat => (
-            <button
-              key={cat}
-              onClick={() => handleSort(cat)}
-              style={{
-                ...choiceBtn,
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '6px',
-                borderColor: 'rgba(75, 155, 255, 0.3)',
-                background: 'rgba(16, 35, 64, 0.6)',
-              }}
-            >
-              <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>{cat.toUpperCase()}</span>
-              <span style={{ fontSize: '0.8rem', backgroundColor: COLORS.accent, color: '#fff', padding: '2px 8px', borderRadius: '10px' }}>
-                Count: {counts[cat]}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================================
-// SECTION 3: TRAINING DATA
-// ============================================================================
-interface S3Animal { type: 'Dog' | 'Cat' | 'Bird'; emoji: string; dots: Array<{ x: number; y: number }>; }
-const S3_ROUNDS: S3Animal[] = [
-  { type: 'Dog', emoji: '🐕', dots: [{ x: 40, y: 160 }, { x: 55, y: 180 }] },
-  { type: 'Cat', emoji: '🐈', dots: [{ x: 140, y: 60 }, { x: 155, y: 45 }] },
-  { type: 'Bird', emoji: '🐦', dots: [{ x: 240, y: 120 }, { x: 260, y: 140 }] },
-  { type: 'Dog', emoji: '🦮', dots: [{ x: 45, y: 145 }] },
-  { type: 'Cat', emoji: '🐈‍⬛', dots: [{ x: 160, y: 75 }] },
-  { type: 'Bird', emoji: '🦅', dots: [{ x: 250, y: 105 }] },
-];
-
-function TrainingDataSection({ onComplete }: { onComplete: () => void }) {
-  const [gateOpen, setGateOpen] = useState(false);
-  const [round, setRound] = useState(0);
-  const [history, setHistory] = useState<Array<{ x: number; y: number; type: string }>>([]);
-  const [isLearning, setIsLearning] = useState(false);
-  const [modelConfidence, setModelConfidence] = useState(0);
-  const [novaMessage, setNovaMessage] = useState('Train the image classifier. Label the central animal structure.');
-
-  if (!gateOpen) {
-    return (
-      <NovaGate
-        lines={[
-          "Welcome to the Deep Learning Greenhouse, Explorer!",
-          "Algorithms are blank slates until fed structured training examples. Here, you will act as the human labeler to compile a feature set.",
-        ]}
-        onDone={() => setGateOpen(true)}
-      />
-    );
   }
 
-  const handleLabel = (label: 'Dog' | 'Cat' | 'Bird') => {
-    if (round >= S3_ROUNDS.length || isLearning) return;
-    const currentItem = S3_ROUNDS[round];
-
-    if (label === currentItem.type) {
-      playSound('click');
-      const newDots = currentItem.dots.map(d => ({ ...d, type: label }));
-      setHistory(p => [...p, ...newDots]);
-      setNovaMessage(`Label accepted! Compiling data points into high-dimensional scatter vector space.`);
-      
-      setIsLearning(true);
-      setTimeout(() => {
-        setIsLearning(false);
-        setModelConfidence(Math.floor(70 + (round * 4) + Math.random() * 5));
-        setRound(p => p + 1);
-      }, 900);
-    } else {
-      playSound('error');
-      setNovaMessage(`Mismatched feature vectors! That sample clearly matches typical ${currentItem.type} biome configurations.`);
-    }
-  };
-
-  const finished = round >= S3_ROUNDS.length;
-
   return (
-    <div style={cardStyle}>
-      <h2 style={{ color: COLORS.accent, margin: '0 0 8px 0' }}>District 3: Training Environment</h2>
-      <p style={{ color: COLORS.textSecondary, marginBottom: '24px' }}>Feed the neural parameters to increase operational confidence weights.</p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', marginBottom: '24px' }}>
-        {/* Left: Camera Frame */}
-        <div style={{ backgroundColor: '#0a1626', borderRadius: '16px', border: '2px solid rgba(255,255,255,0.05)', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '220px', position: 'relative' }}>
-          <span style={{ position: 'absolute', top: '10px', left: '10px', fontSize: '0.75rem', color: COLORS.accent, letterSpacing: '1px' }}>🖥️ LIVE CAMERA TARGET</span>
-          
-          {!finished ? (
-            isLearning ? (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '0.9rem', color: COLORS.accent, marginBottom: '8px', animation: 'blink 1s infinite' }}>OPTIMIZING WEIGHTS...</div>
-                <div style={{ width: '120px', height: '6px', backgroundColor: '#1a3050', borderRadius: '3px', overflow: 'hidden', margin: '0 auto' }}>
-                  <div style={{ width: '100%', height: '100%', backgroundColor: COLORS.success, animation: 'readyPulse 1s infinite' }} />
-                </div>
-              </div>
-            ) : (
-              <span style={{ fontSize: '4.5rem' }}>{S3_ROUNDS[round].emoji}</span>
-            )
-          ) : (
-            <div style={{ textAlign: 'center', color: COLORS.success }}>
-              <span style={{ fontSize: '3rem' }}>✅</span>
-              <div style={{ fontWeight: 'bold', fontSize: '1rem', marginTop: '6px' }}>TRAINING COMPLETE</div>
+    <>
+      <SectionHeader section="nlp" note="Classify sentiment and then try the live NLP simulator." />
+      <div style={cardStyle}>
+        <b>NLP Confidence: {done ? 100 : confidence}%</b>
+        <div style={{ marginTop: 10 }}><ProgressBar value={done ? 100 : confidence} /></div>
+      </div>
+      <div style={{ ...cardStyle, marginTop: 18, minHeight: 220, display: 'grid', alignContent: 'center', gap: 14 }}>
+        {done ? (
+          <>
+            <h3>NLP in action</h3>
+            <input
+              value={demo}
+              onChange={(event) => setDemo(event.target.value)}
+              placeholder="Type any sentence..."
+              style={{ minHeight: 52, borderRadius: 16, border: '1px solid rgba(255,255,255,.1)', background: 'rgba(255,255,255,.08)', color: '#f7fbff', padding: '0 14px' }}
+            />
+            <p className="banner">AI says: {demoSentiment(demo)}</p>
+            <p className="small">NLP is how Gmail filters spam, how Siri understands you, and how Google Translate works.</p>
+            <button style={primaryBtn} onClick={onComplete}>Power Next District</button>
+          </>
+        ) : (
+          <>
+            <div className={`chatBubble ${shake ? 'shake' : ''}`}>{current.text}</div>
+            <div className="grid cols3">
+              {(['Positive', 'Neutral', 'Negative'] as const).map((sentiment) => (
+                <button key={sentiment} style={ghostBtn} onClick={() => choose(sentiment)}>
+                  {sentiment === 'Positive' ? '😊' : sentiment === 'Neutral' ? '😐' : '😠'} {sentiment}
+                </button>
+              ))}
             </div>
-          )}
-        </div>
-
-        {/* Right: SVG Scatter Plot */}
-        <div style={{ backgroundColor: '#091220', borderRadius: '16px', padding: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, display: 'block', marginBottom: '8px', textAlign: 'center' }}>EMBEDDING SPATIAL MAP</span>
-          <svg style={{ width: '100%', height: '160px', backgroundColor: '#040b14', borderRadius: '8px' }}>
-            {/* Theoretical clusters rings */}
-            <circle cx="50" cy="150" r="25" fill="none" stroke="rgba(255, 100, 100, 0.15)" strokeWidth="1" strokeDasharray="3" />
-            <circle cx="150" cy="60" r="25" fill="none" stroke="rgba(94, 252, 130, 0.15)" strokeWidth="1" strokeDasharray="3" />
-            <circle cx="250" cy="120" r="25" fill="none" stroke="rgba(75, 155, 255, 0.15)" strokeWidth="1" strokeDasharray="3" />
-            
-            {history.map((dot, idx) => {
-              const color = dot.type === 'Dog' ? '#ff6464' : dot.type === 'Cat' ? '#5efc82' : '#4b9bff';
-              return <circle key={idx} cx={dot.x} cy={dot.y} r="5" fill={color} style={{ animation: 'slideUp 0.3s ease' }} />;
-            })}
-          </svg>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', fontSize: '0.7rem', marginTop: '6px' }}>
-            <span style={{ color: '#ff6464' }}>● Dog</span>
-            <span style={{ color: '#5efc82' }}>● Cat</span>
-            <span style={{ color: '#4b9bff' }}>● Bird</span>
-          </div>
-        </div>
+            <p className="hint">{hint}</p>
+          </>
+        )}
       </div>
-
-      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '24px' }}>
-        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>💡 {novaMessage}</p>
-      </div>
-
-      {!finished ? (
-        <div style={{ display: 'flex', gap: '12px' }}>
-          {(['Dog', 'Cat', 'Bird'] as const).map(animal => (
-            <button
-              key={animal}
-              disabled={isLearning}
-              onClick={() => handleLabel(animal)}
-              style={{ ...choiceBtn, flex: 1, height: '52px', border: '1px solid rgba(75,155,255,0.2)' }}
-            >
-              {animal === 'Dog' ? '🐶 Dog' : animal === 'Cat' ? '🐱 Cat' : '🐦 Bird'}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div style={{ textAlign: 'center', padding: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '20px', background: 'rgba(94,252,130,0.05)', padding: '12px', borderRadius: '12px' }}>
-            <span style={{ fontSize: '0.9rem' }}>Final Model Precision:</span>
-            <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: COLORS.success }}>{modelConfidence}%</span>
-          </div>
-          <button style={primaryBtn} onClick={() => { playSound('success'); onComplete(); }}>
-            Initiate District 4 Pipeline →
-          </button>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
-// ============================================================================
-// SECTION 4: COMPUTER VISION SCANNER
-// ============================================================================
-interface CVTarget { id: string; emoji: string; name: string; isLiving: boolean; x: string; top: string; }
-const CV_TARGETS: CVTarget[] = [
-  { id: '1', emoji: '🐼', name: 'Animal 🐾', isLiving: true, x: '15%', top: '25%' },
-  { id: '2', emoji: '🚗', name: 'Vehicle', isLiving: false, x: '45%', top: '50%' },
-  { id: '3', emoji: '🐦', name: 'Animal 🐾', isLiving: true, x: '75%', top: '15%' },
-  { id: '4', emoji: '🌳', name: 'Plant life', isLiving: true, x: '18%', top: '65%' },
-  { id: '5', emoji: '🚦', name: 'Signal hardware', isLiving: false, x: '72%', top: '55%' },
-  { id: '6', emoji: '🏠', name: 'Structure', isLiving: false, x: '45%', top: '15%' },
-];
-
-function ComputerVisionSection({ onComplete }: { onComplete: () => void }) {
-  const [gateOpen, setGateOpen] = useState(false);
-  const [detected, setDetected] = useState<string[]>([]);
-  const [wrongFlashedId, setWrongFlashedId] = useState<string | null>(null);
-  const [novaMessage, setNovaMessage] = useState('Identify and lock onto every LIVING organism present in the camera stream frame.');
-
-  if (!gateOpen) {
-    return (
-      <NovaGate
-        lines={[
-          "Entering District 4: Computer Vision Observatory.",
-          "Self-driving arrays and spatial safety protocols rely on optical grid frames. We need to focus convolutional filters only onto active living obstacles.",
-        ]}
-        onDone={() => setGateOpen(true)}
-      />
-    );
-  }
-
-  const handleTargetClick = (target: CVTarget) => {
-    if (target.isLiving) {
-      if (detected.includes(target.id)) return;
-      playSound('click');
-      setDetected(p => [...p, target.id]);
-      setNovaMessage(`Locked onto ${target.name}! Bounding boxes aligned correctly.`);
-    } else {
-      playSound('error');
-      setWrongFlashedId(target.id);
-      setNovaMessage(`Target tracking failure: A ${target.name} does not possess biological signatures. Filter rejected.`);
-      setTimeout(() => setWrongFlashedId(null), 800);
-    }
-  };
-
-  const remaining = CV_TARGETS.filter(t => t.isLiving && !detected.includes(t.id)).length;
-
-  return (
-    <div style={cardStyle}>
-      <h2 style={{ color: COLORS.accent, margin: '0 0 8px 0' }}>District 4: Computer Vision Core</h2>
-      <p style={{ color: COLORS.textSecondary, marginBottom: '20px' }}>Tap live target icons to compile anchor matrices.</p>
-
-      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px' }}>
-        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>📡 {novaMessage}</p>
-      </div>
-
-      <div style={{ width: '100%', height: '280px', backgroundColor: '#040d1a', borderRadius: '20px', border: '2px solid rgba(75,155,255,0.15)', position: 'relative', overflow: 'hidden', marginBottom: '24px' }}>
-        {/* Continuous Scanline */}
-        <div style={{ position: 'absolute', width: '100%', height: '4px', background: 'linear-gradient(90deg, transparent, #5efc82, transparent)', animation: 'scanLine 2.5s linear infinite', zIndex: 2, pointerEvents: 'none' }} />
-
-        {CV_TARGETS.map(t => {
-          const isFound = detected.includes(t.id);
-          const isWrong = wrongFlashedId === t.id;
-
-          return (
-            <div
-              key={t.id}
-              onClick={() => handleTargetClick(t)}
-              style={{
-                position: 'absolute',
-                left: t.x,
-                top: t.top,
-                transform: 'translate(-50%, -50%)',
-                cursor: 'pointer',
-                padding: '10px',
-                userSelect: 'none',
-                minWidth: '48px',
-                minHeight: '48px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <span style={{ fontSize: '2.5rem', transition: 'transform 0.2s', transform: isFound ? 'scale(1.1)' : 'none' }}>{t.emoji}</span>
-
-              {isFound && (
-                <div style={{ position: 'absolute', width: '55px', height: '55px', border: `2px solid ${COLORS.success}`, borderRadius: '6px', animation: 'drawBorder 0.4s ease-out forwards', top: '5%', left: '5%' }}>
-                  <span style={{ position: 'absolute', top: '-18px', left: '0', backgroundColor: COLORS.success, color: '#000', fontSize: '0.65rem', fontWeight: 'bold', padding: '1px 4px', whiteSpace: 'nowrap', borderRadius: '3px' }}>
-                    {t.name}
-                  </span>
-                </div>
-              )}
-
-              {isWrong && (
-                <div style={{ position: 'absolute', fontSize: '2rem', color: COLORS.error, animation: 'shake 0.3s ease' }}>❌</div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {remaining === 0 && (
-        <div style={{ textAlign: 'center', padding: '10px', animation: 'celebrate 0.5s' }}>
-          <div style={{ color: COLORS.success, fontWeight: 'bold', marginBottom: '12px' }}>🎯 VISION MATRICES SYNCHRONIZED</div>
-          <button style={primaryBtn} onClick={() => { playSound('success'); onComplete(); }}>
-            Engage NLP Core →
-          </button>
-        </div>
-      )}
-    </div>
-  );
+function demoSentiment(text: string) {
+  const t = text.toLowerCase();
+  if (!t.trim()) return 'Neutral 😐';
+  if (/(love|best|great|happy|incredible|awesome|good|excellent)/.test(t)) return 'Positive 😊';
+  if (/(hate|bad|terrible|waste|crashed|frustrated|angry|awful)/.test(t)) return 'Negative 😠';
+  return 'Neutral 😐';
 }
 
-// ============================================================================
-// SECTION 5: NATURAL LANGUAGE PROCESSING (NLP)
-// ============================================================================
-interface S5Message { text: string; category: 'pos' | 'neu' | 'neg'; }
-const S5_DATA: S5Message[] = [
-  { text: "I absolutely love this new phone! Best purchase ever.", category: 'pos' },
-  { text: "The train arrives at 3pm.", category: 'neu' },
-  { text: "This movie was a complete waste of time.", category: 'neg' },
-  { text: "The weather today is partly cloudy.", category: 'neu' },
-  { text: "Captain Nova saved NeoCity and it was incredible!", category: 'pos' },
-  { text: "The system crashed again. I'm so frustrated.", category: 'neg' },
-];
-
-function NLPSection({ onComplete }: { onComplete: () => void }) {
-  const [gateOpen, setGateOpen] = useState(false);
-  const [index, setIndex] = useState(0);
-  const [meter, setMeter] = useState(40);
-  const [customText, setCustomText] = useState('');
-  const [customAnalysis, setCustomAnalysis] = useState<string | null>(null);
-  const [isShake, setIsShake] = useState(false);
-  const [novaHint, setNovaHint] = useState('Analyze the incoming atmospheric radio feed for semantic weight values.');
-
-  if (!gateOpen) {
-    return (
-      <NovaGate
-        lines={[
-          "System locked at the Language Harbor terminal.",
-          "Natural Language Processing breaks continuous strings into lexical chunks, determining sentiment weights automatically. Let's benchmark the processor core.",
-        ]}
-        onDone={() => setGateOpen(true)}
-      />
-    );
-  }
-
-  const handleSentiment = (type: 'pos' | 'neu' | 'neg') => {
-    if (index >= S5_DATA.length) return;
-    const current = S5_DATA[index];
-
-    if (type === current.category) {
-      playSound('drop');
-      setMeter(p => Math.min(100, p + 10));
-      setNovaHint(`Correct parsing! Metric weights optimized successfully.`);
-      setIndex(p => p + 1);
-    } else {
-      playSound('error');
-      setIsShake(true);
-      setMeter(p => Math.max(0, p - 5));
-      setNovaHint(`Semantic mismatch: Consider contextual keywords within the active message buffer.`);
-      setTimeout(() => setIsShake(false), 500);
-    }
-  };
-
-  const handleCustomTest = (val: string) => {
-    setCustomText(val);
-    if (!val.trim()) {
-      setCustomAnalysis(null);
-      return;
-    }
-    const txt = val.toLowerCase();
-    if (txt.includes('good') || txt.includes('great') || txt.includes('love') || txt.includes('happy')) {
-      setCustomAnalysis('😊 POSITIVE SENTIMENT LOADED');
-    } else if (txt.includes('bad') || txt.includes('sad') || txt.includes('fail') || txt.includes('error') || txt.includes('hate')) {
-      setCustomAnalysis('😠 NEGATIVE SENTIMENT SCANNED');
-    } else {
-      setCustomAnalysis('😐 NEUTRAL MATRIX ALIGNED');
-    }
-  };
-
-  const finished = index >= S5_DATA.length;
-
-  return (
-    <div style={cardStyle}>
-      <h2 style={{ color: COLORS.accent, margin: '0 0 4px 0' }}>District 5: Language Harbor</h2>
-      <p style={{ color: COLORS.textSecondary, marginBottom: '20px' }}>Evaluate linguistic tensors to configure semantic tracking nodes.</p>
-
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
-          <span>NLP Parsing Confidence Indicator</span>
-          <span style={{ color: COLORS.accent, fontWeight: 'bold' }}>{meter}%</span>
-        </div>
-        <div style={{ width: '100%', height: '10px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '5px', overflow: 'hidden' }}>
-          <div style={{ width: `${meter}%`, height: '100%', backgroundColor: COLORS.accent, transition: 'width 0.3s ease' }} />
-        </div>
-      </div>
-
-      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '24px' }}>
-        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>💡 <strong>Nova:</strong> {novaHint}</p>
-      </div>
-
-      {!finished ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
-          <div className={isShake ? 'shake' : ''} style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderLeft: `4px solid ${COLORS.accent}`, padding: '20px', borderRadius: '0 16px 16px 0' }}>
-            <span style={{ display: 'block', fontSize: '0.75rem', color: COLORS.textMuted, marginBottom: '6px' }}>INCOMING STREAMING BUFFER:</span>
-            <p style={{ margin: 0, fontSize: '1.1rem', fontStyle: 'italic', color: '#fff' }}>"{S5_DATA[index].text}"</p>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleSentiment('pos')}>😊 Positive</button>
-            <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleSentiment('neu')}>😐 Neutral</button>
-            <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleSentiment('neg')}>😠 Negative</button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px', animation: 'slideUp 0.4s' }}>
-          <h4 style={{ color: COLORS.success, margin: '0 0 12px 0' }}>⚡ SANDBOX PARSER DEMO REVEALED</h4>
-          <p style={{ fontSize: '0.85rem', color: COLORS.textSecondary, marginBottom: '12px' }}>
-            Type any custom testing sequence into the prompt terminal below to observe simulated keyword processing configurations:
-          </p>
-          <input
-            type="text"
-            placeholder="Type 'This is amazing' or 'Terrible structural error'..."
-            value={customText}
-            onChange={(e) => handleCustomTest(e.target.value)}
-            style={{ width: '100%', minHeight: '48px', padding: '12px', borderRadius: '10px', backgroundColor: '#07101e', border: `1px solid ${COLORS.accent}`, color: '#fff', marginBottom: '12px' }}
-          />
-          {customAnalysis && (
-            <div style={{ padding: '10px', backgroundColor: 'rgba(75,155,255,0.1)', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', color: '#fff', marginBottom: '20px' }}>
-              {customAnalysis}
-            </div>
-          )}
-          <button style={{ ...primaryBtn, width: '100%' }} onClick={() => { playSound('success'); onComplete(); }}>
-            Route to Regression Observatory →
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================================
-// SECTION 6: REGRESSION OBSERVATORY
-// ============================================================================
-function RegressionSection({ onComplete }: { onComplete: () => void }) {
+function RegressionSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [gateOpen, setGateOpen] = useState(false);
   const [hours, setHours] = useState(5);
   const [sleep, setSleep] = useState(3);
   const [locked, setLocked] = useState(false);
 
-  // Constants for fixed baseline coordinates
-  const staticPoints = [
-    { h: 2, m: 42 }, { h: 3, m: 50 }, { h: 6, m: 65 }, { h: 8, m: 82 }
-  ];
-
   if (!gateOpen) {
-    return (
-      <NovaGate
-        lines={[
-          "Welcome to the Celestial Predictor Terminal, District 6.",
-          "Regression maps numerical causal configurations along geometric slope intercepts. Let's calibrate continuous score trends instantly based on input variables.",
-        ]}
-        onDone={() => setGateOpen(true)}
-      />
-    );
+    return <NovaGate lines={['The observatory predicts city energy scores.', 'Move your data point and watch the regression prediction redraw live.']} onDone={() => setGateOpen(true)} />;
   }
 
-  // Formula: Base Score 30 + (Study Hours * 5) + (Sleep Quality * 4)
-  const predicted = Math.min(100, 30 + (hours * 5) + (sleep * 4));
+  const predicted = 30 + hours * 4 + sleep * 2;
 
   return (
-    <div style={cardStyle}>
-      <h2 style={{ color: COLORS.accent, margin: '0 0 4px 0' }}>District 6: Regression Observatory</h2>
-      <p style={{ color: COLORS.textSecondary, marginBottom: '20px' }}>Manipulate vector variables to trace numerical dependencies.</p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', marginBottom: '24px' }}>
-        {/* SVG Scatter Plot Chart */}
-        <div style={{ backgroundColor: '#050c16', borderRadius: '16px', padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <svg style={{ width: '100%', height: '220px', backgroundColor: '#02060d', borderRadius: '8px' }}>
-            {/* Grid markers lines */}
-            <line x1="30" y1="190" x2="280" y2="190" stroke="#1d2e47" strokeWidth="2" />
-            <line x1="30" y1="20" x2="30" y2="190" stroke="#1d2e47" strokeWidth="2" />
-
-            {/* Existing historical telemetry dots */}
-            {staticPoints.map((p, idx) => {
-              const cx = 30 + (p.h * 24);
-              const cy = 190 - (p.m * 1.6);
-              return <circle key={idx} cx={cx} cy={cy} r="5" fill="#5b7493" />;
-            })}
-
-            {/* Dynamic Interactive Node */}
-            <circle
-              cx={30 + (hours * 24)}
-              cy={190 - (predicted * 1.6)}
-              r="8"
-              fill={locked ? COLORS.success : '#ff9f43'}
-              style={{ transition: 'cx 0.1s, cy 0.1s', animation: 'readyPulse 2s infinite' }}
-            />
-
-            {/* Dynamic Calculated Line Vector */}
-            <line
-              x1="30"
-              y1={190 - (30 + (1 * 5) + (sleep * 4)) * 1.6}
-              x2="270"
-              y2={190 - (Math.min(100, 30 + (10 * 5) + (sleep * 4))) * 1.6}
-              stroke={locked ? COLORS.success : COLORS.accent}
-              strokeWidth="2"
-              strokeDasharray={locked ? '0' : '4'}
-              style={{ transition: 'y1 0.1s, y2 0.1s' }}
-            />
-          </svg>
-          <div style={{ fontSize: '0.7rem', color: COLORS.textMuted, marginTop: '4px' }}>
-            X: Hours Evaluated | Y: Score Core Output
-          </div>
+    <>
+      <SectionHeader section="regression" note="Drag the sliders to add your study data. Watch the AI prediction update." />
+      <div className="grid cols2">
+        <div style={cardStyle}>
+          <RegressionSvg hours={hours} predicted={predicted} locked={locked} />
+          <h3>📍 Predicted: {predicted} marks</h3>
+          <p className="small">Base(30) + Hours({hours}×4) + Sleep({sleep}×2) = {predicted}</p>
         </div>
-
-        {/* Sliders Console */}
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '16px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '6px', color: COLORS.textPrimary }}>
-              📚 Hours Evaluated: <strong style={{ color: COLORS.accent }}>{hours} hrs</strong>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="10"
-              disabled={locked}
-              value={hours}
-              onChange={(e) => { playSound('click'); setHours(Number(e.target.value)); }}
-              style={{ width: '100%', accentColor: COLORS.accent }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '6px', color: COLORS.textPrimary }}>
-              😴 Rest Level: <strong style={{ color: COLORS.accent }}>{sleep} / 5</strong>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="5"
-              disabled={locked}
-              value={sleep}
-              onChange={(e) => { playSound('click'); setSleep(Number(e.target.value)); }}
-              style={{ width: '100%', accentColor: COLORS.accent }}
-            />
-          </div>
-
-          <div style={{ backgroundColor: '#10223b', padding: '10px', borderRadius: '10px', textAlign: 'center' }}>
-            <span style={{ fontSize: '0.75rem', display: 'block', color: COLORS.textMuted }}>PREDICTED RESULT</span>
-            <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: locked ? COLORS.success : '#ff9f43' }}>
-              📍 {predicted} Marks
-            </span>
-          </div>
+        <div style={cardStyle}>
+          <label className="grid" style={{ gap: 8, marginBottom: 14 }}>
+            📚 Study hours: <b>{hours}</b>
+            <input type="range" min="1" max="10" value={hours} onChange={(event) => setHours(Number(event.target.value))} disabled={locked} />
+          </label>
+          <label className="grid" style={{ gap: 8, marginBottom: 14 }}>
+            😴 Sleep quality: <b>{sleep}</b>
+            <input type="range" min="1" max="5" value={sleep} onChange={(event) => setSleep(Number(event.target.value))} disabled={locked} />
+          </label>
+          <button style={primaryBtn} disabled={locked} onClick={() => { setLocked(true); playSound('success'); }}>Lock Prediction</button>
+          {locked && (
+            <>
+              <p className="small">Swiggy uses regression to predict your delivery time. Netflix uses it to predict how many stars you'll give a movie.</p>
+              <button style={primaryBtn} onClick={onComplete}>Power Next District</button>
+            </>
+          )}
         </div>
       </div>
-
-      <div style={{ padding: '12px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', fontSize: '0.85rem', color: COLORS.textSecondary, marginBottom: '20px', fontFamily: 'monospace', textAlign: 'center' }}>
-        TENSOR FORMULA Matrix: Base(30) + (Hours×5) + (Rest×4) = {predicted}
-      </div>
-
-      {!locked ? (
-        <button style={{ ...primaryBtn, width: '100%' }} onClick={() => { playSound('power'); setLocked(true); }}>
-          Lock Linear Prediction Weights
-        </button>
-      ) : (
-        <div style={{ textAlign: 'center', animation: 'celebrate 0.5s' }}>
-          <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: COLORS.success }}>
-            ✅ Trend Locked! Logistics operators like Swiggy use precisely this methodology to predict package dispatch times.
-          </p>
-          <button style={{ ...primaryBtn, width: '100%' }} onClick={() => onComplete()}>
-            Proceed to Clustering Forest →
-          </button>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
-// ============================================================================
-// SECTION 7: CLUSTERING FOREST
-// ============================================================================
-interface ClusterNode { id: string; emoji: string; category: 'Shape' | 'Animal' | 'Tool'; x: number; y: number; }
-const S7_NODES: ClusterNode[] = [
-  { id: '1', emoji: '🔺', category: 'Shape', x: 50, y: 50 },
-  { id: '2', emoji: '🔵', category: 'Shape', x: 80, y: 40 },
-  { id: '3', emoji: '⬛', category: 'Shape', x: 65, y: 75 },
-  
-  { id: '4', emoji: '🦊', category: 'Animal', x: 230, y: 60 },
-  { id: '5', emoji: '🐈', category: 'Animal', x: 250, y: 90 },
-  { id: '6', emoji: '🐰', category: 'Animal', x: 210, y: 100 },
-  
-  { id: '7', emoji: '📦', category: 'Tool', x: 140, y: 180 },
-  { id: '8', emoji: '🎒', category: 'Tool', x: 170, y: 210 },
-  { id: '9', emoji: '🪑', category: 'Tool', x: 120, y: 220 },
+function RegressionSvg({ hours, predicted, locked }: { hours: number; predicted: number; locked: boolean }) {
+  const sx = (x: number) => 35 + x * 28;
+  const sy = (y: number) => 200 - y * 1.6;
+  const historical = [[1, 38], [2, 42], [4, 55], [5, 60], [7, 72], [9, 84]];
+  return (
+    <svg className="svgBox" viewBox="0 0 340 230">
+      <line x1="35" y1="200" x2="315" y2="200" stroke="#8bb0ff" />
+      <line x1="35" y1="30" x2="35" y2="200" stroke="#8bb0ff" />
+      <text x="170" y="224" fill="#b6c7dc" textAnchor="middle">Study Hours</text>
+      <text x="12" y="118" fill="#b6c7dc" transform="rotate(-90 12 118)">Marks</text>
+      <line x1={sx(1)} y1={sy(38)} x2={sx(10)} y2={sy(30 + 10 * 4 + 3 * 2)} stroke={locked ? '#5efc82' : '#4b9bff'} strokeWidth="4" strokeLinecap="round" />
+      {historical.map(([x, y]) => <circle key={`${x}-${y}`} cx={sx(x)} cy={sy(y)} r="7" fill="#4b9bff" />)}
+      <circle cx={sx(hours)} cy={sy(predicted)} r="10" fill={locked ? '#5efc82' : '#ffd76a'} filter="drop-shadow(0 0 10px #ffd76a)" />
+    </svg>
+  );
+}
 
-  { id: '10', emoji: '🐸', category: 'Animal', x: 240, y: 130 },
-];
-
-function ClusteringSection({ onComplete }: { onComplete: () => void }) {
+function ClusteringSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [gateOpen, setGateOpen] = useState(false);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [assignments, setAssignments] = useState<Record<string, 'RED' | 'GREEN' | 'BLUE'>>({});
-  const [novaMessage, setNovaMessage] = useState('Unlabeled vector elements detected. Group identical types onto common field arrays.');
-  const [shakeTrigger, setShakeTrigger] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [assigned, setAssigned] = useState<Record<string, string>>({});
+  const [hint, setHint] = useState('');
+  const [checked, setChecked] = useState(false);
 
   if (!gateOpen) {
-    return (
-      <NovaGate
-        lines={[
-          "Entering District 7: Clustering Wilderness Canvas.",
-          "Unsupervised network routines locate intrinsic patterns without prior human tagging files. Group adjacent structural behaviors to align regional centroids.",
-        ]}
-        onDone={() => setGateOpen(true)}
-      />
-    );
+    return <NovaGate lines={['The forest map lost its natural groups.', 'Assign dots to camps by category, then check the clusters.']} onDone={() => setGateOpen(true)} />;
   }
 
-  const handleCampAssign = (camp: 'RED' | 'GREEN' | 'BLUE') => {
-    if (!selectedNodeId) return;
-    playSound('drop');
-    setAssignments(p => ({ ...p, [selectedNodeId]: camp }));
-    setSelectedNodeId(null);
-  };
+  const dots = [
+    { id: 'tri', icon: '🔺', x: 45, y: 40, group: 'Red' },
+    { id: 'circle', icon: '🔵', x: 85, y: 66, group: 'Red' },
+    { id: 'square', icon: '⬛', x: 58, y: 105, group: 'Red' },
+    { id: 'cat', icon: '🐱', x: 210, y: 44, group: 'Green' },
+    { id: 'dog', icon: '🐶', x: 250, y: 85, group: 'Green' },
+    { id: 'fox', icon: '🦊', x: 218, y: 126, group: 'Green' },
+    { id: 'rabbit', icon: '🐰', x: 260, y: 152, group: 'Green' },
+    { id: 'frog', icon: '🐸', x: 230, y: 188, group: 'Green' },
+    { id: 'butterfly', icon: '🦋', x: 194, y: 170, group: 'Green' },
+    { id: 'box', icon: '📦', x: 90, y: 190, group: 'Blue' },
+    { id: 'chair', icon: '🪑', x: 125, y: 155, group: 'Blue' },
+    { id: 'bag', icon: '🎒', x: 63, y: 150, group: 'Blue' },
+  ];
+  const correct = dots.every((dot) => assigned[dot.id] === dot.group);
 
-  const checkValidation = () => {
-    // Validate if same category items are in unique distinct camps
-    const shapeCamps = S7_NODES.filter(n => n.category === 'Shape').map(n => assignments[n.id]);
-    const animalCamps = S7_NODES.filter(n => n.category === 'Animal').map(n => assignments[n.id]);
-    const toolCamps = S7_NODES.filter(n => n.category === 'Tool').map(n => assignments[n.id]);
-
-    const allAssigned = S7_NODES.every(n => assignments[n.id]);
-    if (!allAssigned) {
-      playSound('error');
-      setNovaMessage('Unfinished processing! Please distribute every floating node data cluster.');
+  function assign(camp: string) {
+    if (!selected) {
+      setHint('Tap a forest dot first.');
       return;
     }
+    playSound('drop');
+    setAssigned((prev) => ({ ...prev, [selected]: camp }));
+    setSelected(null);
+    setChecked(false);
+    setHint('');
+  }
 
-    const shapesUniform = shapeCamps.every(v => v && v === shapeCamps[0]);
-    const animalsUniform = animalCamps.every(v => v && v === animalCamps[0]);
-    const toolsUniform = toolCamps.every(v => v && v === toolCamps[0]);
-    
-    const uniqueCamps = new Set([shapeCamps[0], animalCamps[0], toolCamps[0]]).size === 3;
-
-    if (shapesUniform && animalsUniform && toolsUniform && uniqueCamps) {
+  function check() {
+    setChecked(true);
+    if (correct) {
       playSound('success');
-      setNovaMessage('CLUSTERS VALIDATED! Unsupervised spatial separation completely functional.');
+      setHint('');
     } else {
       playSound('error');
-      setShakeTrigger(true);
-      setNovaMessage('Overlapping vector limits detected! Ensure nodes of different profiles occupy separate color hubs.');
-      setTimeout(() => setShakeTrigger(false), 600);
+      setHint('Look at what the items have in common, not what they look like, but their category.');
     }
-  };
-
-  const isSuccess = novaMessage.startsWith('CLUSTERS VALIDATED');
+  }
 
   return (
-    <div style={cardStyle}>
-      <h2 style={{ color: COLORS.accent, margin: '0 0 4px 0' }}>District 7: Unsupervised Clustering Forest</h2>
-      <p style={{ color: COLORS.textSecondary, marginBottom: '16px' }}>Select an object node element, then isolate it into a camp network cluster.</p>
-
-      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px' }}>
-        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>💡 {novaMessage}</p>
+    <>
+      <SectionHeader section="clustering" note="Group similar items. Connecting lines appear as clusters form." />
+      <div className="grid cols2">
+        <div style={cardStyle}><ClusterSvg dots={dots} selected={selected} assigned={assigned} checked={checked} onSelect={setSelected} /></div>
+        <div style={cardStyle}>
+          <div className="grid">
+            {(['Red', 'Green', 'Blue'] as const).map((camp) => (
+              <button key={camp} className="tile" onClick={() => assign(camp)}>
+                <b>{camp === 'Red' ? '🔴' : camp === 'Green' ? '🟢' : '🔵'} {camp} Camp</b>
+                <span className="small">{Object.values(assigned).filter((value) => value === camp).length} assigned</span>
+              </button>
+            ))}
+          </div>
+          <p className="hint">{hint}</p>
+          <button style={primaryBtn} onClick={check}>Check Clusters</button>
+        </div>
       </div>
-
-      <div className={shakeTrigger ? 'shake' : ''} style={{ position: 'relative', width: '100%', height: '250px', backgroundColor: '#030a14', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: '20px' }}>
-        <svg style={{ position: 'absolute', width: '100%', height: '100%', pointerEvents: 'none' }}>
-          {/* Dynamically drawing connection links between shared camps nodes */}
-          {S7_NODES.map((n1, i) => 
-            S7_NODES.map((n2, j) => {
-              if (i >= j) return null;
-              const c1 = assignments[n1.id];
-              const c2 = assignments[n2.id];
-              if (c1 && c1 === c2) {
-                const color = c1 === 'RED' ? '#ff6464' : c1 === 'GREEN' ? '#5efc82' : '#4b9bff';
-                return (
-                  <line
-                    key={`${n1.id}-${n2.id}`}
-                    x1={n1.x + 12}
-                    y1={n1.y + 12}
-                    x2={n2.x + 12}
-                    y2={n2.y + 12}
-                    stroke={color}
-                    strokeWidth="1.5"
-                    opacity="0.6"
-                  />
-                );
-              }
-              return null;
-            })
-          )}
-        </svg>
-
-        {S7_NODES.map(n => {
-          const camp = assignments[n.id];
-          const isSelected = selectedNodeId === n.id;
-          let borderCol = 'transparent';
-          if (isSelected) borderCol = '#fff';
-          else if (camp === 'RED') borderCol = '#ff6464';
-          else if (camp === 'GREEN') borderCol = '#5efc82';
-          else if (camp === 'BLUE') borderCol = '#4b9bff';
-
-          return (
-            <button
-              key={n.id}
-              onClick={() => { playSound('click'); setSelectedNodeId(n.id); }}
-              style={{
-                position: 'absolute',
-                left: `${n.x}px`,
-                top: `${n.y}px`,
-                background: 'none',
-                border: `2px solid ${borderCol}`,
-                borderRadius: '50%',
-                width: '36px',
-                height: '36px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.3rem',
-                backgroundColor: isSelected ? 'rgba(255,255,255,0.15)' : 'transparent',
-                boxShadow: isSelected ? '0 0 10px #fff' : 'none',
-              }}
-            >
-              {n.emoji}
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
-        <button
-          disabled={!selectedNodeId}
-          onClick={() => handleCampAssign('RED')}
-          style={{ ...choiceBtn, flex: 1, color: '#ff6464', borderColor: '#ff6464', backgroundColor: 'rgba(255,100,100,0.05)' }}
-        >
-          🔴 Red Camp
-        </button>
-        <button
-          disabled={!selectedNodeId}
-          onClick={() => handleCampAssign('GREEN')}
-          style={{ ...choiceBtn, flex: 1, color: '#5efc82', borderColor: '#5efc82', backgroundColor: 'rgba(94,252,130,0.05)' }}
-        >
-          🟢 Green Camp
-        </button>
-        <button
-          disabled={!selectedNodeId}
-          onClick={() => handleCampAssign('BLUE')}
-          style={{ ...choiceBtn, flex: 1, color: '#4b9bff', borderColor: '#4b9bff', backgroundColor: 'rgba(75,155,255,0.05)' }}
-        >
-          🔵 Blue Camp
-        </button>
-      </div>
-
-      {!isSuccess ? (
-        <button style={{ ...primaryBtn, width: '100%' }} onClick={checkValidation}>
-          Verify K-Means Cluster Boundaries
-        </button>
-      ) : (
-        <div style={{ textAlign: 'center', animation: 'celebrate 0.4s' }}>
-          <p style={{ fontSize: '0.85rem', color: COLORS.textSecondary, marginBottom: '12px' }}>
-            Excellent data topology separation. Spotify uses unsupervised clustering architectures to compile weekly listener algorithmic playlists!
-          </p>
-          <button style={primaryBtn} onClick={() => onComplete()}>
-            Proceed to Data Vault →
-          </button>
+      {correct && checked && (
+        <div style={{ ...cardStyle, marginTop: 18 }}>
+          <div className="banner">CLUSTERS FOUND ✅</div>
+          <p className="small">Clustering is how Spotify groups listeners with similar taste, and how scientists group stars by type without pre-labelling them.</p>
+          <button style={primaryBtn} onClick={onComplete}>Power Next District</button>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-// ============================================================================
-// SECTION 8: DATA TYPES VAULT
-// ============================================================================
-interface Riddle { q: string; a: 'Structured' | 'Unstructured' | 'Time-Series' | 'Spatial'; hint: string; }
-const RIDDLES: Riddle[] = [
-  { q: "A spreadsheet array showing structured names, numerical grades, and student counts.", a: 'Structured', hint: "Data residing neatly in formal tables, rows, or tabular data parameters." },
-  { q: "Thousands of high-definition Instagram jpeg photographs uploaded without tables.", a: 'Unstructured', hint: "Free-flowing assets like media logs or unstructured video files." },
-  { q: "Temperature telemetry recordings logged continuously every 10 minutes over 6 months.", a: 'Time-Series', hint: "Tracking continuous timeline updates ordered explicitly by chronal timestamps." },
-  { q: "Live GPS coordinates tracking coordinates of active delivery vessels across the city map.", a: 'Spatial', hint: "Positional telemetry based on absolute geographic coordinate tracking models." },
-];
+function ClusterSvg({
+  dots,
+  selected,
+  assigned,
+  checked,
+  onSelect,
+}: {
+  dots: { id: string; icon: string; x: number; y: number; group: string }[];
+  selected: string | null;
+  assigned: Record<string, string>;
+  checked: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const colors: Record<string, string> = { Red: '#ff6464', Green: '#5efc82', Blue: '#4b9bff' };
+  const lines: { a: typeof dots[number]; b: typeof dots[number]; color: string }[] = [];
+  (['Red', 'Green', 'Blue'] as const).forEach((camp) => {
+    const group = dots.filter((dot) => assigned[dot.id] === camp);
+    if (group.length >= 3) {
+      group.slice(1).forEach((dot) => lines.push({ a: group[0], b: dot, color: colors[camp] }));
+    }
+  });
+  return (
+    <svg className="svgBox" viewBox="0 0 320 240">
+      {lines.map((line) => (
+        <line key={`${line.a.id}-${line.b.id}`} x1={line.a.x} y1={line.a.y} x2={line.b.x} y2={line.b.y} stroke={line.color} strokeWidth="3" opacity=".72">
+          <animate attributeName="opacity" from="0" to=".72" dur=".4s" />
+        </line>
+      ))}
+      {dots.map((dot) => {
+        const wrong = checked && assigned[dot.id] && assigned[dot.id] !== dot.group;
+        return (
+          <g key={dot.id} onClick={() => onSelect(dot.id)} style={{ cursor: 'pointer' }} className={wrong ? 'shake' : ''}>
+            <circle cx={dot.x} cy={dot.y} r="22" fill={assigned[dot.id] ? colors[assigned[dot.id]] : 'rgba(255,255,255,.08)'} stroke={selected === dot.id ? '#ffd76a' : 'rgba(255,255,255,.18)'} strokeWidth="3" />
+            <text x={dot.x} y={dot.y + 7} textAnchor="middle" fontSize="22">{dot.icon}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
-function DataTypesSection({ onComplete }: { onComplete: () => void }) {
+function DataTypesSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [gateOpen, setGateOpen] = useState(false);
-  const [currentRiddleIdx, setCurrentRiddleIdx] = useState(0);
+  const [index, setIndex] = useState(0);
+  const [hint, setHint] = useState('');
   const [shake, setShake] = useState(false);
-  const [novaMessage, setNovaMessage] = useState('Crack the vault parameters by classifying data storage signatures.');
 
   if (!gateOpen) {
-    return (
-      <NovaGate
-        lines={[
-          "Arrived at District 8: The Central Data Crypt.",
-          "Different models demand specific data formats. Let's analyze architecture formats to unlock the security layers.",
-        ]}
-        onDone={() => setGateOpen(true)}
-      />
-    );
+    return <NovaGate lines={['The Data Vault accepts four data signatures.', 'Solve each riddle to rotate a vault ring.']} onDone={() => setGateOpen(true)} />;
   }
 
-  const handleAnswer = (ans: 'Structured' | 'Unstructured' | 'Time-Series' | 'Spatial') => {
-    if (currentRiddleIdx >= RIDDLES.length) return;
-    const current = RIDDLES[currentRiddleIdx];
+  const riddles = [
+    { text: 'A spreadsheet of student names, grades and attendance', answer: 'Structured', hint: 'Rows and columns mean structured data.' },
+    { text: 'Thousands of Instagram photos', answer: 'Unstructured', hint: 'Photos are unstructured data.' },
+    { text: 'Temperature sensor readings every 10 minutes for 6 months', answer: 'Time-Series', hint: 'Repeated readings over time form time-series data.' },
+    { text: 'GPS locations of every delivery in the city', answer: 'Spatial', hint: 'GPS locations are spatial data.' },
+  ];
+  const done = index >= riddles.length;
 
-    if (ans === current.a) {
-      playSound('success');
-      setNovaMessage(`Security ring unlocked! Access layer confirmed.`);
-      setCurrentRiddleIdx(p => p + 1);
+  function answer(choice: string) {
+    if (choice === riddles[index].answer) {
+      playSound('drop');
+      setIndex((prev) => prev + 1);
+      setHint('');
     } else {
       playSound('error');
       setShake(true);
-      setNovaMessage(`Access Denied! Hint: ${current.hint}`);
-      setTimeout(() => setShake(false), 600);
+      setHint(riddles[index].hint);
+      window.setTimeout(() => setShake(false), 450);
     }
-  };
-
-  const finished = currentRiddleIdx >= RIDDLES.length;
+  }
 
   return (
-    <div style={cardStyle}>
-      <h2 style={{ color: COLORS.accent, margin: '0 0 4px 0' }}>District 8: The Data Crypt Vault</h2>
-      <p style={{ color: COLORS.textSecondary, marginBottom: '24px' }}>Decrypt security variables sequentially to unlock the primary files.</p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '20px', marginBottom: '24px', alignItems: 'center' }}>
-        {/* SVG Concentric Lock Rings Graphics */}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <svg style={{ width: '160px', height: '160px' }} viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="40" fill="none" stroke={currentRiddleIdx > 0 ? COLORS.success : '#203a61'} strokeWidth="4" strokeDasharray="10 5" style={{ transformOrigin: '50% 50%', transform: `rotate(${currentRiddleIdx * 45}deg)`, transition: 'transform 0.5s' }} />
-            <circle cx="50" cy="50" r="30" fill="none" stroke={currentRiddleIdx > 1 ? COLORS.success : '#2a4d80'} strokeWidth="4" strokeDasharray="6 4" style={{ transformOrigin: '50% 50%', transform: `rotate(-${currentRiddleIdx * 60}deg)`, transition: 'transform 0.5s' }} />
-            <circle cx="50" cy="50" r="20" fill="none" stroke={currentRiddleIdx > 2 ? COLORS.success : '#3560a1'} strokeWidth="4" style={{ transformOrigin: '50% 50%', transform: `rotate(${currentRiddleIdx * 90}deg)`, transition: 'transform 0.5s' }} />
-            <circle cx="50" cy="50" r="8" fill={finished ? COLORS.success : '#ffbb00'} />
-          </svg>
-        </div>
-
-        {/* Quest text terminal window */}
-        <div className={shake ? 'shake' : ''} style={{ backgroundColor: '#091526', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <span style={{ fontSize: '0.75rem', color: COLORS.accent, fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>ENCRYPTED LOCK INTERFACE:</span>
-          {!finished ? (
-            <p style={{ margin: 0, fontSize: '0.9rem', color: '#fff', lineHeight: 1.5 }}>"{RIDDLES[currentRiddleIdx].q}"</p>
+    <>
+      <SectionHeader section="dataTypes" note="Crack the vault by identifying each data type." />
+      <div className="grid cols2">
+        <div style={cardStyle} className={shake ? 'shake' : ''}><VaultSvg openRings={index} done={done} /></div>
+        <div style={cardStyle}>
+          {done ? (
+            <>
+              <div className="banner">VAULT OPEN 🔓</div>
+              <p className="small">AI systems need to know what kind of data they're working with before they can learn from it.</p>
+              <button style={primaryBtn} onClick={onComplete}>Power Next District</button>
+            </>
           ) : (
-            <p style={{ margin: 0, fontSize: '0.95rem', color: COLORS.success, fontWeight: 'bold' }}>🔓 CRYPT CORE ACCESSED SUCCESSFULLY</p>
+            <>
+              <h3>{riddles[index].text}</h3>
+              <div className="grid">
+                {['Structured', 'Unstructured', 'Time-Series', 'Spatial'].map((choice) => <button key={choice} style={ghostBtn} onClick={() => answer(choice)}>{choice}</button>)}
+              </div>
+              <p className="hint">{hint}</p>
+            </>
           )}
         </div>
       </div>
-
-      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '24px' }}>
-        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>📡 {novaMessage}</p>
-      </div>
-
-      {!finished ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <button style={choiceBtn} onClick={() => handleAnswer('Structured')}>🗂️ Structured</button>
-          <button style={choiceBtn} onClick={() => handleAnswer('Unstructured')}>🌊 Unstructured</button>
-          <button style={choiceBtn} onClick={() => handleAnswer('Time-Series')}>⏱️ Time-Series</button>
-          <button style={choiceBtn} onClick={() => handleAnswer('Spatial')}>🗺️ Spatial</button>
-        </div>
-      ) : (
-        <button style={{ ...primaryBtn, width: '100%' }} onClick={() => onComplete()}>
-          Assemble Pipeline Machine →
-        </button>
-      )}
-    </div>
+    </>
   );
 }
 
-// ============================================================================
-// SECTION 9: AI WORKFLOW PIPELINE
-// ============================================================================
-const PIPELINE_STEPS = [
-  { id: 'S1', label: 'Define the Problem', emoji: '🎯' },
-  { id: 'S2', label: 'Collect Data', emoji: '📥' },
-  { id: 'S3', label: 'Clean & Prepare Data', emoji: '🧹' },
-  { id: 'S4', label: 'Train the Model', emoji: '🏋️' },
-  { id: 'S5', label: 'Test & Evaluate', emoji: '🧪' },
-];
+function VaultSvg({ openRings, done }: { openRings: number; done: boolean }) {
+  return (
+    <svg className="svgBox" viewBox="0 0 260 260" style={{ display: 'block', margin: '0 auto' }}>
+      {[100, 78, 56, 34].map((radius, index) => (
+        <circle
+          key={radius}
+          cx="130"
+          cy="130"
+          r={radius}
+          fill="none"
+          stroke={index < openRings ? '#5efc82' : '#4b9bff'}
+          strokeWidth="13"
+          strokeDasharray="38 12"
+          style={{ transformOrigin: '130px 130px', transform: `rotate(${index < openRings ? 90 : 0}deg)`, transition: '.4s' }}
+        />
+      ))}
+      <circle cx="130" cy="130" r="28" fill={done ? '#ffd76a' : '#142542'} />
+      {done && <circle cx="130" cy="130" r="42" fill="rgba(255,215,106,.2)" style={{ transformOrigin: '130px 130px', animation: 'radialPulse 1.4s ease infinite' }} />}
+      <text x="130" y="138" textAnchor="middle" fontSize="24">{done ? '🔓' : '🔒'}</text>
+    </svg>
+  );
+}
 
-function AIWorkflowSection({ onComplete }: { onComplete: () => void }) {
+function AIWorkflowSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [gateOpen, setGateOpen] = useState(false);
-  const [slots, setSlots] = useState<Array<string | null>>([null, null, null, null, null]);
-  const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
-  const [pool, setPool] = useState<string[]>(['S3', 'S1', 'S5', 'S2', 'S4']); // Shuffled original sequence
-  const [isValidated, setIsValidated] = useState(false);
-  const [novaMessage, setNovaMessage] = useState('Map lifecycle items into logical sequential pipeline slots.');
-  const [shake, setShake] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [slots, setSlots] = useState<(string | null)[]>([null, null, null, null, null]);
+  const [checked, setChecked] = useState(false);
+  const [hint, setHint] = useState('');
 
   if (!gateOpen) {
-    return (
-      <NovaGate
-        lines={[
-          "Arrived at District 9: System Pipeline Factory.",
-          "Engineering reliable software requires adhering to sequential methodology. You cannot train parameters without parsing training datasets first!",
-        ]}
-        onDone={() => setGateOpen(true)}
-      />
-    );
+    return <NovaGate lines={['The pipeline machine is out of order.', 'Place the steps in sequence so energy can flow.']} onDone={() => setGateOpen(true)} />;
   }
 
-  const handleSlotClick = (slotIdx: number) => {
-    if (isValidated) return;
-    
-    // If a pool item is selected, place it
-    if (selectedPoolId) {
-      playSound('click');
-      const nextSlots = [...slots];
-      const occupiedId = nextSlots[slotIdx];
-      
-      nextSlots[slotIdx] = selectedPoolId;
-      setSlots(nextSlots);
-      setPool(p => {
-        const filtered = p.filter(id => id !== selectedPoolId);
-        if (occupiedId) filtered.push(occupiedId);
-        return filtered;
-      });
-      setSelectedPoolId(null);
-    } else {
-      // Remove from slot back to pool
-      const currentId = slots[slotIdx];
-      if (!currentId) return;
-      playSound('click');
-      const nextSlots = [...slots];
-      nextSlots[slotIdx] = null;
-      setSlots(nextSlots);
-      setPool(p => [...p, currentId]);
-    }
-  };
+  const correct = slots.every((step, index) => step === workflowSteps[index]);
+  const pool = [...workflowSteps].filter((step) => !slots.includes(step));
 
-  const verifyPipeline = () => {
-    const sequenceCorrect = slots.every((id, idx) => id === `S${idx + 1}`);
-    if (sequenceCorrect) {
-      playSound('success');
-      setIsValidated(true);
-      setNovaMessage('SYSTEM PIPELINE ONLINE! Core deployment matrices finalized.');
+  function place(slot: number) {
+    if (!selected) {
+      setHint('Select a step card first.');
+      return;
+    }
+    playSound('drop');
+    setSlots((prev) => prev.map((value, index) => (index === slot ? selected : value)));
+    setSelected(null);
+    setChecked(false);
+    setHint('');
+  }
+
+  function activate() {
+    setChecked(true);
+    const wrong = slots.filter((step, index) => step !== workflowSteps[index]).length;
+    if (wrong === 0) {
+      playSound('power');
+      setHint('');
     } else {
       playSound('error');
-      setShake(true);
-      setNovaMessage('Execution runtime failure: Stages sequence broken. Remember, cleansing raw blocks always precedes model optimization weights.');
-      setTimeout(() => setShake(false), 500);
+      setHint(`${wrong} steps are wrong. Think about which comes first: you can't train without data.`);
     }
-  };
+  }
 
   return (
-    <div style={cardStyle}>
-      <h2 style={{ color: COLORS.accent, margin: '0 0 4px 0' }}>District 9: The AI Pipeline Machine</h2>
-      <p style={{ color: COLORS.textSecondary, marginBottom: '20px' }}>Structure stages sequentially from left to right to build an operational system.</p>
-
-      <div style={{ backgroundColor: '#0f1f38', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px' }}>
-        <p style={{ margin: 0, fontSize: '0.9rem', color: COLORS.textPrimary }}>💡 {novaMessage}</p>
-      </div>
-
-      {/* Target Slots Tracks */}
-      <div className={shake ? 'shake' : ''} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', marginBottom: '24px' }}>
-        {slots.map((id, idx) => {
-          const stepObj = PIPELINE_STEPS.find(s => s.id === id);
-          return (
-            <div
-              key={idx}
-              onClick={() => handleSlotClick(idx)}
-              style={{
-                minHeight: '90px',
-                border: `2px dashed ${id ? COLORS.accent : 'rgba(255,255,255,0.15)'}`,
-                borderRadius: '16px',
-                backgroundColor: id ? 'rgba(75,155,255,0.06)' : 'transparent',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                padding: '8px',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: '0.7rem', color: COLORS.textMuted, marginBottom: '4px' }}>STAGE 0{idx + 1}</div>
-              {stepObj ? (
-                <>
-                  <span style={{ fontSize: '1.4rem' }}>{stepObj.emoji}</span>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stepObj.label}</span>
-                </>
-              ) : (
-                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>[Empty]</span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Unallocated Items Pool */}
-      {!isValidated && (
-        <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '16px', marginBottom: '20px' }}>
-          <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, display: 'block', marginBottom: '10px' }}>AVAILABLE LIFECYCLE STAGES MODULES:</span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-            {pool.map(id => {
-              const item = PIPELINE_STEPS.find(s => s.id === id)!;
-              const isSelected = selectedPoolId === id;
+    <>
+      <SectionHeader section="aiWorkflow" note="Assemble the AI workflow in the correct order." />
+      <div className="grid cols2">
+        <div style={cardStyle}>
+          <div className="grid">
+            {slots.map((slot, index) => {
+              const ok = slot === workflowSteps[index];
+              const wrong = checked && slot && !ok;
               return (
-                <button
-                  key={id}
-                  onClick={() => { playSound('click'); setSelectedPoolId(isSelected ? null : id); }}
-                  style={{
-                    ...choiceBtn,
-                    flex: '1 1 120px',
-                    borderColor: isSelected ? '#fff' : 'rgba(255,255,255,0.1)',
-                    backgroundColor: isSelected ? 'rgba(75,155,255,0.2)' : 'rgba(255,255,255,0.04)',
-                    boxShadow: isSelected ? '0 0 8px rgba(75,155,255,0.4)' : 'none',
-                  }}
-                >
-                  <span>{item.emoji} {item.label}</span>
+                <button key={index} style={{ ...ghostBtn, display: 'grid', gridTemplateColumns: '42px 1fr', alignItems: 'center', textAlign: 'left', borderColor: ok ? 'rgba(94,252,130,.65)' : wrong ? 'rgba(255,100,100,.65)' : 'rgba(255,255,255,.1)' }} className={wrong ? 'shake' : ''} onClick={() => place(index)}>
+                  <b>{index + 1}</b><span>{slot || 'Empty stage'}</span>
                 </button>
               );
             })}
           </div>
+          <button style={{ ...primaryBtn, marginTop: 16 }} onClick={activate}>Activate Machine</button>
+          <p className="hint">{hint}</p>
+        </div>
+        <div style={cardStyle}>
+          <div className="grid">
+            {pool.map((step) => <button key={step} className={`tile ${selected === step ? 'selected' : ''}`} onClick={() => { setSelected(step); playSound('click'); }}>{step}</button>)}
+          </div>
+        </div>
+      </div>
+      {correct && checked && (
+        <div style={{ ...cardStyle, marginTop: 18 }}>
+          <div className="banner">MACHINE ONLINE ⚙️</div>
+          <PipelineFlow />
+          <p className="small">Every AI system ever built, from Alexa to self-driving cars, follows this exact pipeline.</p>
+          <button style={primaryBtn} onClick={onComplete}>Power Final District</button>
         </div>
       )}
-
-      {!isValidated ? (
-        <button style={{ ...primaryBtn, width: '100%' }} onClick={verifyPipeline}>
-          Engage Factory Pipeline Systems
-        </button>
-      ) : (
-        <div style={{ textAlign: 'center', animation: 'celebrate 0.5s' }}>
-          <p style={{ fontSize: '0.85rem', color: COLORS.success, marginBottom: '16px' }}>
-            ✅ Sequence synchronized! This structured lifecycle governs enterprise deployments from autonomous shipping grids to advanced medical AI diagnostics.
-          </p>
-          <button style={primaryBtn} onClick={() => onComplete()}>
-            Proceed to Final Core Nexus →
-          </button>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
-// ============================================================================
-// SECTION 10: FINAL CORE RESTORATION & BOSS BATTLE
-// ============================================================================
-interface BossQuestion { q: string; options: string[]; correctIdx: number; }
-const BOSS_QUESTIONS: BossQuestion[] = [
-  { q: "Which core paradigm learns trends dynamically from historical tracking files instead of hardcoded rules?", options: ["Artificial Intelligence", "Mechanical Thermostat Controllers", "Fixed Matrix Calculators"], correctIdx: 0 },
-  { q: "What classification methodology isolates unstructured photos cleanly from tabular arrays?", options: ["Linear Regression Slopes", "Computer Vision & NLP Data Typing", "Conventional Hardware Alarms"], correctIdx: 1 },
-  { q: "What does human labeling provide to an initialized model workspace?", options: ["Processor Clock Cycles", "Structured Training Datasets", "Raw Network Bandwidth"], correctIdx: 1 },
-  { q: "Swiggy uses which algorithm structure to predict continuous shipment timelines?", options: ["Unsupervised Clustering Matrices", "Linear Regression", "Categorical Language Filtering"], correctIdx: 1 },
-  { q: "What stage directly succeeds Data Collection within an automated engineering workflow?", options: ["Immediate Model Evaluation", "Data Cleaning & Preparation", "Live Server Core Deployment"], correctIdx: 1 },
-];
+function PipelineFlow() {
+  return (
+    <svg className="svgBox" viewBox="0 0 360 90" style={{ marginTop: 14 }}>
+      <path d="M30 45 H330" stroke="#5efc82" strokeWidth="8" strokeLinecap="round" strokeDasharray="100" style={{ animation: 'flowDot 1.4s ease infinite' }} />
+      {[45, 112, 180, 248, 315].map((x) => <circle key={x} cx={x} cy="45" r="12" fill="#4bffa5" />)}
+    </svg>
+  );
+}
 
-function FinalMissionSection({ onComplete }: { onComplete: () => void }) {
+function FinalMissionSection({ onComplete, addBossXp }: { onComplete: CompleteHandler; addBossXp: () => void }) {
   const [gateOpen, setGateOpen] = useState(false);
-  
-  // Sequence tracker: 'MINI_GAMES' -> 'BOSS_BATTLE'
-  const [subStage, setSubStage] = useState<'MINI_GAMES' | 'BOSS_BATTLE'>('MINI_GAMES');
-  const [miniStep, setMiniStep] = useState(0);
+  const [step, setStep] = useState(0);
+  const [bossStarted, setBossStarted] = useState(false);
+  const [bossIndex, setBossIndex] = useState(0);
+  const [health, setHealth] = useState(100);
+  const [hint, setHint] = useState('');
+  const [coreReady, setCoreReady] = useState(false);
 
-  // Boss state
-  const [bossIdx, setBossIdx] = useState(0);
-  const [coreHealth, setCoreHealth] = useState(100);
-  const [timeLeft, setTimeLeft] = useState(15);
-  const [bossShake, setBossShake] = useState(false);
-
-  // Strict declarations of all functional hooks before gate escape early return triggers
   useEffect(() => {
-    if (!gateOpen || subStage !== 'BOSS_BATTLE' || bossIdx >= BOSS_QUESTIONS.length) return;
-    
-    setTimeLeft(15);
-    const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          playSound('error');
-          setCoreHealth(h => Math.max(0, h - 20));
-          setBossIdx(b => b + 1);
-          return 15;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [gateOpen, subStage, bossIdx]);
+    if (step === 4 && !bossStarted) {
+      const id = window.setTimeout(() => setCoreReady(true), 2000);
+      return () => window.clearTimeout(id);
+    }
+  }, [step, bossStarted]);
 
   if (!gateOpen) {
+    return <NovaGate lines={['Only the AI Core remains.', 'Solve four systems in sequence, then face the final rapid-fire battle.']} onDone={() => setGateOpen(true)} />;
+  }
+
+  if (bossStarted) {
     return (
-      <NovaGate
-        lines={[
-          "ALERT: Reached Core Omega Node, District 10.",
-          "The main mainframe core is fluctuating wildly. Complete the 4 rapid hardware overrides to stabilize backup containment arrays, then prepare to override the AI mainframe firewall safeguards!",
-        ]}
-        onDone={() => setGateOpen(true)}
+      <BossBattle
+        index={bossIndex}
+        health={health}
+        hint={hint}
+        onAnswer={(correct) => {
+          if (correct) {
+            addBossXp();
+            playSound('success');
+          } else {
+            setHealth((prev) => Math.max(0, prev - 20));
+            playSound('error');
+          }
+          setHint(correct ? '' : 'Core health dropped, but the mission continues.');
+          if (bossIndex >= 4) onComplete();
+          else setBossIndex((prev) => prev + 1);
+        }}
+        onTimeout={() => {
+          setHealth((prev) => Math.max(0, prev - 20));
+          if (bossIndex >= 4) onComplete();
+          else setBossIndex((prev) => prev + 1);
+        }}
       />
     );
   }
 
-  // --- SUBSTAGE 1: 4 QUICK CHALLENGES ---
-  const handleMiniChallenge = (isCorrect: boolean) => {
-    if (isCorrect) {
-      playSound('success');
-      if (miniStep < 3) {
-        setMiniStep(p => p + 1);
-      } else {
-        setSubStage('BOSS_BATTLE');
-      }
-    } else {
-      playSound('error');
-    }
-  };
+  const challenges = [
+    { title: 'Classification', prompt: '🌧️ Weather sensor data', options: ['📊 Structured', '🌊 Unstructured', '⏱️ Time-Series'], answer: '⏱️ Time-Series' },
+    { title: 'Prediction', prompt: 'Mon-Fri energy: 10, 12, 14, 16, ?', options: ['14', '18', '22'], answer: '18' },
+    { title: 'Sentiment', prompt: 'The AI core has been failing all week. This is terrible!', options: ['😊 Positive', '😐 Neutral', '😠 Negative'], answer: '😠 Negative' },
+    { title: 'Clustering', prompt: 'How many natural clusters do you see?', options: ['1', '2', '3'], answer: '2' },
+  ];
+  const done = step >= challenges.length;
+  const challenge = challenges[Math.min(step, challenges.length - 1)];
 
-  // --- SUBSTAGE 2: BOSS FIREWALL OVERRIDE ---
-  const handleBossAnswer = (selectedIdx: number) => {
-    const currentQuestion = BOSS_QUESTIONS[bossIdx];
-    if (selectedIdx === currentQuestion.correctIdx) {
+  function answer(choice: string) {
+    if (choice === challenge.answer) {
       playSound('success');
+      setStep((prev) => prev + 1);
+      setHint('');
     } else {
       playSound('error');
-      setCoreHealth(h => Math.max(0, h - 20));
-      setBossShake(true);
-      setTimeout(() => setBossShake(false), 500);
+      setHint('That system still looks unstable. Try the concept this challenge is testing.');
     }
-    
-    if (bossIdx < BOSS_QUESTIONS.length - 1) {
-      setBossIdx(p => p + 1);
-      setTimeLeft(15);
-    } else {
-      // Trigger full experience callback
-      onComplete();
-    }
-  };
+  }
 
   return (
-    <div style={cardStyle}>
-      <h2 style={{ color: '#ff4b4b', margin: '0 0 4px 0' }}>🚨 FINAL MISSION: Core Nexus Terminal</h2>
-      
-      {/* Visual Status Indicator Rings Tracker */}
-      <div style={{ display: 'flex', gap: '10px', margin: '16px 0' }}>
-        {[0, 1, 2, 3].map(i => (
-          <div key={i} style={{ flex: 1, height: '10px', borderRadius: '5px', backgroundColor: (subStage === 'BOSS_BATTLE' || miniStep > i) ? COLORS.success : '#551a1a', transition: 'all 0.3s' }} />
-        ))}
+    <>
+      <SectionHeader section="finalMission" note="Restore all four core systems." />
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', gap: 10, fontSize: '2rem', marginBottom: 16 }}>{[0, 1, 2, 3].map((i) => <span key={i}>{i < step ? '🟢' : '🔴'}</span>)}</div>
+        <ProgressBar value={step * 25} />
       </div>
+      <div style={{ ...cardStyle, marginTop: 18, animation: 'slideInRight .35s ease both', position: 'relative', overflow: 'hidden' }}>
+        {done ? (
+          <>
+            <div style={{ position: 'absolute', inset: '20% 35%', background: 'rgba(94,252,130,.18)', borderRadius: '50%', animation: 'radialPulse 1.5s ease infinite' }} />
+            <div className="banner">⚡ CORE RESTORED</div>
+            <p className="small">The core is alive. Boss battle incoming.</p>
+            <button style={primaryBtn} disabled={!coreReady} onClick={() => setBossStarted(true)}>{coreReady ? 'Enter Boss Battle' : 'Stabilizing core...'}</button>
+          </>
+        ) : (
+          <>
+            <div className="kicker">Challenge {step + 1}: {challenge.title}</div>
+            <h3>{challenge.prompt}</h3>
+            {challenge.title === 'Prediction' && <MiniLine />}
+            {challenge.title === 'Clustering' && <MiniClusters />}
+            <div className="grid cols3">{challenge.options.map((option) => <button key={option} style={ghostBtn} onClick={() => answer(option)}>{option}</button>)}</div>
+            <p className="hint">{hint}</p>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
 
-      {subStage === 'MINI_GAMES' ? (
-        <div>
-          {miniStep === 0 && (
-            <div style={{ animation: 'slideInRight 0.3s' }}>
-              <h3 style={{ color: COLORS.accent }}>Override 1: Data Type Routing</h3>
-              <p style={{ color: COLORS.textSecondary }}>A streaming telemetry array tracking real-time weather logs belongs to which storage core format profile?</p>
-              <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
-                <button style={choiceBtn} onClick={() => handleMiniChallenge(false)}>🗂️ Standard Tabular Structured Matrix</button>
-                <button style={choiceBtn} onClick={() => handleMiniChallenge(true)}>⏱️ Continuous Time-Series Vector Pipeline</button>
-                <button style={choiceBtn} onClick={() => handleMiniChallenge(false)}>🗺️ Static Geographic Spatial Coordinate Coordinates</button>
-              </div>
-            </div>
-          )}
+function MiniLine() {
+  return (
+    <svg className="svgBox" viewBox="0 0 260 130" style={{ marginBottom: 14 }}>
+      <polyline points="20,95 75,80 130,65 185,50" fill="none" stroke="#4b9bff" strokeWidth="4" />
+      <line x1="185" y1="50" x2="240" y2="35" stroke="#5efc82" strokeWidth="4" strokeDasharray="6 6" />
+    </svg>
+  );
+}
 
-          {miniStep === 1 && (
-            <div style={{ animation: 'slideInRight 0.3s' }}>
-              <h3 style={{ color: COLORS.accent }}>Override 2: Regression Intercept Target</h3>
-              <p style={{ color: COLORS.textSecondary }}>Review the systematic trend data line below: [Mon: 10, Tue: 12, Wed: 14, Thu: 16]. Calculate the predicted core variable vector target for Friday:</p>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>14 Core Units</button>
-                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(true)}>18 Core Units</button>
-                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>22 Core Units</button>
-              </div>
-            </div>
-          )}
+function MiniClusters() {
+  const left = [[45, 45], [75, 60], [55, 82]];
+  const right = [[178, 42], [205, 68], [168, 88]];
+  return (
+    <svg className="svgBox" viewBox="0 0 260 130" style={{ marginBottom: 14 }}>
+      {left.map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="13" fill="#ff6464" />)}
+      {right.map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="13" fill="#4b9bff" />)}
+    </svg>
+  );
+}
 
-          {miniStep === 2 && (
-            <div style={{ animation: 'slideInRight 0.3s' }}>
-              <h3 style={{ color: COLORS.accent }}>Override 3: Lexical Sentiment Intercept</h3>
-              <p style={{ color: COLORS.textSecondary }}>Linguistic intercept: "The primary mainframe cooling lines have failed completely. This is absolutely disastrous!" Evaluate the semantic balance weight:</p>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>😊 Positive Tensor</button>
-                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>😐 Neutral Balance</button>
-                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(true)}>😠 Negative Backlog</button>
-              </div>
-            </div>
-          )}
+function BossBattle({
+  index,
+  health,
+  hint,
+  onAnswer,
+  onTimeout,
+}: {
+  index: number;
+  health: number;
+  hint: string;
+  onAnswer: (correct: boolean) => void;
+  onTimeout: () => void;
+}) {
+  const questions = [
+    { q: 'What does classification do?', options: ['Predicts a number', 'Puts items into categories', 'Deletes data'], answer: 'Puts items into categories' },
+    { q: 'What does training data contain?', options: ['Examples', 'Only music', 'Passwords'], answer: 'Examples' },
+    { q: 'Which data type changes over time?', options: ['Spatial', 'Time-Series', 'Unstructured'], answer: 'Time-Series' },
+    { q: 'What does NLP work with?', options: ['Language', 'Fuel', 'Bridges'], answer: 'Language' },
+    { q: 'What finds groups without labels?', options: ['Clustering', 'Alarm clock', 'Calculator'], answer: 'Clustering' },
+  ];
 
-          {miniStep === 3 && (
-            <div style={{ animation: 'slideInRight 0.3s' }}>
-              <h3 style={{ color: COLORS.accent }}>Override 4: Spatial Clusters Count</h3>
-              <p style={{ color: COLORS.textSecondary }}>An unsupervised topology map logs 3 tight clusters of geometric shapes alongside 3 separate clusters of biological data vectors. How many distinct natural groups exist?</p>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>1 Composite Blob</button>
-                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(true)}>2 Isolated Dense Clusters</button>
-                <button style={{ ...choiceBtn, flex: 1 }} onClick={() => handleMiniChallenge(false)}>4 Segmented Spans</button>
-              </div>
-            </div>
-          )}
+  useEffect(() => {
+    const id = window.setTimeout(onTimeout, 15000);
+    return () => window.clearTimeout(id);
+  }, [index, onTimeout]);
+
+  const question = questions[index];
+  if (!question) return null;
+
+  return (
+    <>
+      <SectionHeader section="finalMission" note="Answer quickly. Wrong answers drain the AI Core health bar." />
+      <div style={cardStyle}>
+        <b>AI Core Health: {health}%</b>
+        <div style={{ marginTop: 10 }}><ProgressBar value={health} color="linear-gradient(90deg,#ff6464,#ffd76a,#5efc82)" /></div>
+        <div className="bar timer" style={{ marginTop: 12 }}><span style={{ background: '#ffd76a' }} /></div>
+      </div>
+      <div style={{ ...cardStyle, marginTop: 18 }}>
+        <div className="kicker">Boss Question {index + 1}/5</div>
+        <h3>{question.q}</h3>
+        <div className="grid cols3">
+          {question.options.map((option) => <button key={option} style={ghostBtn} onClick={() => onAnswer(option === question.answer)}>{option}</button>)}
         </div>
-      ) : (
-        // BOSS BATTLE NODE MODE PANEL
-        <div className={bossShake ? 'shake' : ''} style={{ animation: 'slideUp 0.4s' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <span style={{ color: '#ff4b4b', fontWeight: 'bold', fontSize: '0.9rem' }}>🛡️ FIREWALL DEPLOYED MATRIX</span>
-            <span style={{ backgroundColor: '#ff4b4b', color: '#fff', padding: '4px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-              ⏳ SECURITY INTERCEPT DETECTED: {timeLeft}s
-            </span>
-          </div>
+        <p className="hint">{hint}</p>
+      </div>
+    </>
+  );
+}
 
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '4px' }}>
-              <span>Mainframe Logic Core Health Status</span>
-              <span style={{ color: coreHealth > 40 ? COLORS.success : COLORS.error, fontWeight: 'bold' }}>{coreHealth}%</span>
-            </div>
-            <div style={{ width: '100%', height: '12px', backgroundColor: '#3a1010', borderRadius: '6px', overflow: 'hidden' }}>
-              <div style={{ width: `${coreHealth}%`, height: '100%', backgroundColor: coreHealth > 40 ? COLORS.success : COLORS.error, transition: 'width 0.3s' }} />
-            </div>
-          </div>
+function VictoryScreen({ xp, completedCount, onRestart }: { xp: number; completedCount: number; onRestart: () => void }) {
+  const confetti = useMemo(() => Array.from({ length: 40 }, (_, index) => ({
+    id: index,
+    left: `${Math.random() * 100}vw`,
+    delay: `${Math.random() * 1.2}s`,
+    color: ['#5efc82', '#4b9bff', '#ffd76a', '#ff6464'][index % 4],
+  })), []);
 
-          {coreHealth <= 0 ? (
-            <div style={{ textAlign: 'center', padding: '16px' }}>
-              <p style={{ color: COLORS.error, fontWeight: 'bold' }}>MAIN FRAMEWORK IS CRITICALLY DEGRADED</p>
-              <button style={primaryBtn} onClick={() => { setCoreHealth(100); setBossIdx(0); setSubStage('MINI_GAMES'); setMiniStep(0); }}>
-                Re-initialize Core Terminals Override Sequences
-              </button>
-            </div>
-          ) : (
-            <div>
-              <div style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid rgba(255,75,75,0.2)' }}>
-                <span style={{ fontSize: '0.75rem', color: '#ff7878', display: 'block', marginBottom: '6px' }}>CHALLENGE COMPILER INTEGRATION {bossIdx + 1} / {BOSS_QUESTIONS.length}:</span>
-                <p style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#fff' }}>{BOSS_QUESTIONS[bossIdx].q}</p>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {BOSS_QUESTIONS[bossIdx].options.map((opt, oIdx) => (
-                  <button key={oIdx} style={{ ...choiceBtn, textAlign: 'left', minHeight: '48px' }} onClick={() => handleBossAnswer(oIdx)}>
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+  return (
+    <div style={{ minHeight: 'calc(100vh - 108px)', display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+      {confetti.map((piece) => <div key={piece.id} className="confetti" style={{ left: piece.left, animationDelay: piece.delay, background: piece.color }} />)}
+      <div style={{ ...cardStyle, maxWidth: 760 }}>
+        <div style={{ fontSize: '5rem' }}>🏆</div>
+        <h2>NeoCity Restored!</h2>
+        <p className="sub">Total XP earned: <b>{xp}</b>. Sections completed: <b>{completedCount}/10</b>. Badges earned: Junior Explorer, Data Ranger, Model Maker, Core Hero.</p>
+        <button style={primaryBtn} onClick={onRestart}>Play Again</button>
+      </div>
     </div>
   );
 }
 
-// ============================================================================
-// APP ROOT HOOKS & ARCHITECTURE LAYOUT CONTAINER
-// ============================================================================
-export default function App() {
+function SectionScreen({
+  currentSection,
+  onComplete,
+  addBossXp,
+}: {
+  currentSection: SectionKey;
+  onComplete: () => void;
+  addBossXp: () => void;
+}) {
+  switch (currentSection) {
+    case 'whatIsAI':
+      return <WhatIsAISection onComplete={onComplete} />;
+    case 'classification':
+      return <ClassificationSection onComplete={onComplete} />;
+    case 'trainingData':
+      return <TrainingDataSection onComplete={onComplete} />;
+    case 'computerVision':
+      return <ComputerVisionSection onComplete={onComplete} />;
+    case 'nlp':
+      return <NLPSection onComplete={onComplete} />;
+    case 'regression':
+      return <RegressionSection onComplete={onComplete} />;
+    case 'clustering':
+      return <ClusteringSection onComplete={onComplete} />;
+    case 'dataTypes':
+      return <DataTypesSection onComplete={onComplete} />;
+    case 'aiWorkflow':
+      return <AIWorkflowSection onComplete={onComplete} />;
+    case 'finalMission':
+      return <FinalMissionSection onComplete={onComplete} addBossXp={addBossXp} />;
+    case 'landing':
+    default:
+      return null;
+  }
+}
+
+function App() {
   const [xp, setXp] = useState(0);
-  const [completed, setCompleted] = useState<SectionKey[]>([]);
+  const [completed, setCompleted] = useState<MissionKey[]>([]);
   const [currentSection, setCurrentSection] = useState<SectionKey>('landing');
+  const [victory, setVictory] = useState(false);
 
-  const displayedXp = useCountUp(xp);
-
-  const handleSectionComplete = () => {
-    const currentConf = SECTIONS.find(s => s.key === currentSection);
-    if (currentConf && !completed.includes(currentSection)) {
-      setXp(p => p + currentConf.xpReward);
-      setCompleted(p => [...p, currentSection]);
+  function completeCurrent() {
+    if (currentSection === 'landing') return;
+    const mission = currentSection as MissionKey;
+    if (!completed.includes(mission)) {
+      setCompleted((prev) => [...prev, mission]);
+      setXp((prev) => prev + 30);
     }
-
-    const currentIdx = SECTIONS.findIndex(s => s.key === currentSection);
-    if (currentIdx !== -1 && currentIdx < SECTIONS.length - 1) {
-      setCurrentSection(SECTIONS[currentIdx + 1].key);
-    } else {
-      setCurrentSection('victory');
+    if (mission === 'finalMission') {
+      setVictory(true);
+      return;
     }
-  };
+    const next = sectionOrder[sectionOrder.indexOf(currentSection) + 1];
+    if (next) setCurrentSection(next);
+  }
 
-  const getActiveBadge = () => {
-    if (completed.length === 0) return '🚀 Greenhorn Cadet';
-    const lastKey = completed[completed.length - 1];
-    const found = SECTIONS.find(s => s.key === lastKey);
-    return found ? found.badge : '🚀 Greenhorn Cadet';
-  };
+  function restart() {
+    setXp(0);
+    setCompleted([]);
+    setCurrentSection('landing');
+    setVictory(false);
+  }
 
-  const progressPercent = Math.floor((completed.length / SECTIONS.length) * 100);
+  function canNavigate(section: SectionKey) {
+    if (section === 'landing') return true;
+    const index = sectionOrder.indexOf(section);
+    const prev = sectionOrder[index - 1];
+    return prev === 'landing' || completed.includes(prev as MissionKey) || completed.includes(section as MissionKey);
+  }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <>
       <GlobalStyles />
-
-      {/* Primary Header Interface Grid */}
-      <header style={{ backgroundColor: '#0b1424', padding: '16px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '1.8rem' }}>🏙️</span>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '1.2rem', letterSpacing: '0.5px', color: COLORS.textPrimary }}>NeoCity AI Adventure</h1>
-            <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, textTransform: 'uppercase' }}>Central Administration Mainframe</span>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ backgroundColor: '#10223b', padding: '8px 16px', borderRadius: '12px', border: '1px solid rgba(75,155,255,0.2)' }}>
-            <span style={{ fontSize: '0.75rem', color: COLORS.textSecondary, display: 'block' }}>EXP METRICS ACCRUE</span>
-            <span style={{ fontSize: '1.3rem', fontWeight: 'bold', color: COLORS.success }}>✨ {displayedXp} XP</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Framework Partition Columns split */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '280px 1fr', backgroundColor: COLORS.bg }}>
-        
-        {/* Left Interactive Track Map Sidebar Panel */}
-        <aside style={{ backgroundColor: '#0b1321', borderRight: '1px solid rgba(255,255,255,0.05)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div>
-            <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>Core Progress</span>
-            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '6px' }}>System Restored: {progressPercent}%</div>
-            <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: COLORS.accent, transition: 'width 0.4s ease' }} />
-            </div>
-          </div>
-
-          <div>
-            <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>Equipped Clearance Level Badge</span>
-            <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '10px', fontSize: '0.85rem', border: '1px solid rgba(255,255,255,0.05)', fontWeight: 'bold', color: COLORS.accent }}>
-              {getActiveBadge()}
-            </div>
-          </div>
-
-          <div style={{ flex: 1 }}>
-            <span style={{ fontSize: '0.75rem', color: COLORS.textMuted, display: 'block', marginBottom: '10px', textTransform: 'uppercase' }}>District Transit Coordinates</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {SECTIONS.map((sec, sIdx) => {
-                const isCompleted = completed.includes(sec.key);
-                const isActive = currentSection === sec.key;
-                let color = 'rgba(255,255,255,0.3)';
-                let bg = 'transparent';
-                if (isActive) {
-                  color = COLORS.accent;
-                  bg = 'rgba(75,155,255,0.08)';
-                } else if (isCompleted) {
-                  color = COLORS.success;
-                }
-
-                return (
-                  <div
-                    key={sec.key}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      fontSize: '0.8rem',
-                      fontWeight: isActive || isCompleted ? 'bold' : 'normal',
-                      color: color,
-                      backgroundColor: bg,
-                      border: isActive ? '1px solid rgba(75,155,255,0.2)' : '1px solid transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <span>{isCompleted ? '✅' : isActive ? '⚡' : '🔒'}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>0{sIdx + 1}: {sec.title}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
-
-        {/* Right Active Dynamic Sandbox Screen Area Viewport Container */}
-        <main style={{ padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-          
-          {currentSection === 'landing' && (
-            <div style={{ ...cardStyle, textAlign: 'center', padding: '48px' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '16px', animation: 'float 3s infinite alternate' }}>🛸</div>
-              <h2 style={{ fontSize: '2rem', color: '#fff', margin: '0 0 12px 0' }}>NeoCity AI Adventure Terminal Entry</h2>
-              <p style={{ color: COLORS.textSecondary, fontSize: '1.1rem', maxWidth: '500px', margin: '0 auto 32px auto', lineHeight: 1.6 }}>
-                Junior Explorer, NeoCity's central machine intelligence clusters have suffered a total logic crash. We need to travel across the operational districts to reboot the pipelines!
-              </p>
-              <button style={{ ...primaryBtn, fontSize: '1.1rem', padding: '16px 40px' }} onClick={() => { playSound('power'); setCurrentSection('whatIsAI'); }}>
-                Initialize System Override Array Protocols →
-              </button>
-            </div>
-          )}
-
-          {currentSection === 'whatIsAI' && <WhatIsAISection onComplete={handleSectionComplete} />}
-          {currentSection === 'classification' && <ClassificationSection onComplete={handleSectionComplete} />}
-          {currentSection === 'trainingData' && <TrainingDataSection onComplete={handleSectionComplete} />}
-          {currentSection === 'computerVision' && <ComputerVisionSection onComplete={handleSectionComplete} />}
-          {currentSection === 'nlp' && <NLPSection onComplete={handleSectionComplete} />}
-          {currentSection === 'regression' && <RegressionSection onComplete={handleSectionComplete} />}
-          {currentSection === 'clustering' && <ClusteringSection onComplete={handleSectionComplete} />}
-          {currentSection === 'dataTypes' && <DataTypesSection onComplete={handleSectionComplete} />}
-          {currentSection === 'aiWorkflow' && <AIWorkflowSection onComplete={handleSectionComplete} />}
-          {currentSection === 'finalMission' && <FinalMissionSection onComplete={handleSectionComplete} />}
-
-          {currentSection === 'victory' && (
-            <div style={{ ...cardStyle, textAlign: 'center', padding: '48px', position: 'relative', overflow: 'hidden' }}>
-              {/* Confetti Generation loops block */}
-              {Array.from({ length: 40 }).map((_, i) => {
-                const left = Math.random() * 100;
-                const delay = Math.random() * 3;
-                const colorsArr = ['#4b9bff', '#5efc82', '#ff6464', '#ffbb00'];
-                const randomColor = colorsArr[Math.floor(Math.random() * colorsArr.length)];
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      position: 'absolute',
-                      width: '8px',
-                      height: '8px',
-                      backgroundColor: randomColor,
-                      top: '-10px',
-                      left: `${left}%`,
-                      opacity: 0.7,
-                      borderRadius: '50%',
-                      animation: `confettiFall 4s linear infinite`,
-                      animationDelay: `${delay}s`,
-                      pointerEvents: 'none',
-                    }}
-                  />
-                );
-              })}
-
-              <div style={{ fontSize: '5rem', marginBottom: '16px' }}>👑</div>
-              <h2 style={{ fontSize: '2.5rem', color: COLORS.success, margin: '0 0 12px 0' }}>MAINFRAME TOTALLY RESTORED!</h2>
-              <p style={{ color: COLORS.textSecondary, fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto 32px auto', lineHeight: 1.6 }}>
-                Incredible work, Master Explorer! You successfully navigated through text token sentiments, linear regressions, computer vision boundaries, and pipeline optimizations. NeoCity is safe and fully operational!
-              </p>
-
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', maxWidth: '500px', margin: '0 auto 40px auto' }}>
-                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px 24px', borderRadius: '16px', flex: 1 }}>
-                  <span style={{ fontSize: '0.8rem', color: COLORS.textMuted, display: 'block' }}>TOTAL SCORE METRICS</span>
-                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: COLORS.accent }}>{xp} XP</span>
-                </div>
-                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px 24px', borderRadius: '16px', flex: 1 }}>
-                  <span style={{ fontSize: '0.8rem', color: COLORS.textMuted, display: 'block' }}>DISTRICT CORES OVERRIDDEN</span>
-                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: COLORS.success }}>10 / 10</span>
-                </div>
-              </div>
-
-              <button
-                style={{ ...primaryBtn, fontSize: '1.1rem', padding: '16px 40px' }}
-                onClick={() => {
+      <div className="app">
+        <Sidebar
+          xp={xp}
+          completed={completed}
+          currentSection={currentSection}
+          onNavigate={(section) => {
+            if (canNavigate(section)) setCurrentSection(section);
+          }}
+        />
+        <main className="content">
+          <section className="stage">
+            {victory ? (
+              <VictoryScreen xp={xp} completedCount={completed.length} onRestart={restart} />
+            ) : currentSection === 'landing' ? (
+              <LandingScreen
+                onStart={() => {
                   playSound('power');
-                  setXp(0);
-                  setCompleted([]);
-                  setCurrentSection('landing');
+                  setCurrentSection('whatIsAI');
                 }}
-              >
-                Reinitialize Simulation Matrix 🔄
-              </button>
-            </div>
-          )}
-
+              />
+            ) : (
+              <SectionScreen
+                currentSection={currentSection}
+                onComplete={completeCurrent}
+                addBossXp={() => setXp((prev) => prev + 10)}
+              />
+            )}
+          </section>
         </main>
       </div>
-    </div>
+    </>
   );
 }
+
+export default App;
