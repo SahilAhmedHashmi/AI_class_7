@@ -6,7 +6,6 @@ export interface RegressionPoint {
   y: number;
 }
 
-export type RegressionPhase = 'TRAINING_PHASE' | 'TESTING_PHASE';
 export type RegressionStatus = 'AWAITING DATA' | 'TRAINING' | 'PAUSED' | 'MODEL OPTIMIZED';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -23,10 +22,7 @@ const buildSampleData = (): RegressionPoint[] => {
   });
 };
 
-const TRAINING_POINTS_LIMIT = 6;
-
 export function useGradientDescent(initialRate = 0.01) {
-  const [phase, setPhase] = useState<RegressionPhase>('TRAINING_PHASE');
   const [points, setPoints] = useState<RegressionPoint[]>([]);
   const [m, setM] = useState<number>(() => randomBetween(-1, 1));
   const [b, setB] = useState<number>(() => randomBetween(-1, 1));
@@ -35,8 +31,7 @@ export function useGradientDescent(initialRate = 0.01) {
   const [learningRate, setLearningRate] = useState<number>(() => clamp(initialRate, 0.0001, 0.05));
   const [status, setStatus] = useState<RegressionStatus>('AWAITING DATA');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [predictionX, setPredictionX] = useState<number>(6);
-  const [showTransitionMessage, setShowTransitionMessage] = useState<boolean>(false);
+  const [predictionX, setPredictionX] = useState<number>(5);
 
   const pointsRef = useRef<RegressionPoint[]>(points);
   const mRef = useRef<number>(m);
@@ -46,11 +41,10 @@ export function useGradientDescent(initialRate = 0.01) {
   const learningRateRef = useRef<number>(learningRate);
   const runningRef = useRef<boolean>(true);
   const statusRef = useRef<RegressionStatus>(status);
-  const phaseRef = useRef<RegressionPhase>(phase);
   const stableCountRef = useRef<number>(0);
   const lossIncreaseCountRef = useRef<number>(0);
   const lastValidRef = useRef<{ m: number; b: number }>({ m: mRefValue(m), b: bRefValue(b) });
-  const maxUpdatesPerFrame = 3;
+  const maxUpdatesPerFrame = 3; // between 1 and 5 as spec
   const rafRef = useRef<number | null>(null);
 
   function mRefValue(val?: number) {
@@ -85,10 +79,6 @@ export function useGradientDescent(initialRate = 0.01) {
     learningRateRef.current = learningRate;
   }, [learningRate]);
 
-  useEffect(() => {
-    phaseRef.current = phase;
-  }, [phase]);
-
   const updateStatus = useCallback((nextStatus: RegressionStatus) => {
     if (statusRef.current !== nextStatus) {
       statusRef.current = nextStatus;
@@ -97,14 +87,8 @@ export function useGradientDescent(initialRate = 0.01) {
   }, []);
 
   const addPoint = useCallback((point: Omit<RegressionPoint, 'id'>) => {
-    setPoints((prev) => {
-      if (prev.length < TRAINING_POINTS_LIMIT) {
-        return [...prev, { ...point, id: createId() }];
-      }
-      return prev;
-    });
+    setPoints((prev) => [...prev, { ...point, id: createId() }]);
     stableCountRef.current = 0;
-    runningRef.current = true;
     updateStatus('TRAINING');
   }, [updateStatus]);
 
@@ -123,16 +107,6 @@ export function useGradientDescent(initialRate = 0.01) {
     updateStatus('TRAINING');
     setErrorMessage(null);
   }, [updateStatus]);
-
-  const transitionToTesting = useCallback(() => {
-    setShowTransitionMessage(true);
-    setTimeout(() => {
-      setPoints([]); // Clear training points
-      setPhase('TESTING_PHASE');
-      setShowTransitionMessage(false);
-      runningRef.current = false; // Stop gradient descent
-    }, 1500);
-  }, []);
 
   const clearData = useCallback(() => {
     setPoints([]);
@@ -270,13 +244,8 @@ export function useGradientDescent(initialRate = 0.01) {
 
         // convergence check
         if (improvement < 0.0001) {
-          if (pts.length === TRAINING_POINTS_LIMIT && phaseRef.current === 'TRAINING_PHASE') {
-            updateStatus('MODEL OPTIMIZED');
-            runningRef.current = false;
-            transitionToTesting();
-          } else {
-            updateStatus('TRAINING');
-          }
+          updateStatus('MODEL OPTIMIZED');
+          runningRef.current = false;
           converged = true;
           break;
         } else {
@@ -295,12 +264,11 @@ export function useGradientDescent(initialRate = 0.01) {
         window.cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [updateStatus, transitionToTesting]);
+  }, [updateStatus]);
 
   const predictedY = useMemo(() => m * predictionX + b, [m, b, predictionX]);
 
   return {
-    phase,
     points,
     addPoint,
     generateSampleData,
@@ -319,7 +287,5 @@ export function useGradientDescent(initialRate = 0.01) {
     predictedY,
     errorMessage,
     clearError,
-    showTransitionMessage,
-    transitionToTesting,
   };
 }

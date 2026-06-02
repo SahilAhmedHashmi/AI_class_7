@@ -1,5 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, createContext, useContext } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
+import { BossBattle, BossQuestion } from './components/BossBattle';
+import { RegressionLab } from './components/RegressionLab';
+
+export const PlayerContext = createContext<string>('');
 
 type SectionKey =
   | 'landing'
@@ -35,8 +39,6 @@ const sectionOrder: SectionKey[] = [
 
 const missionKeys = sectionOrder.filter((key): key is MissionKey => key !== 'landing');
 
-const typingSoundUrl = new URL('../soundreality-keyboard-typing-sfx-525007.mp3', import.meta.url).href;
-
 const sectionTitles: Record<SectionKey, string> = {
   landing: 'Launch',
   whatIsAI: 'What is AI?',
@@ -49,6 +51,45 @@ const sectionTitles: Record<SectionKey, string> = {
   dataTypes: 'The Data Vault',
   aiWorkflow: 'The AI Pipeline Machine',
   finalMission: 'Restore the AI Core',
+};
+
+const sectionDetails: Partial<Record<SectionKey, { title: string; text: string }>> = {
+  classification: {
+    title: 'Why classification matters',
+    text: 'Classification is how AI puts things into categories based on their features. In the activity ahead, you will teach the model to sort items into Fruit, Animal, and Vehicle bins. This is the same idea behind email filters, image tagging, and medical diagnosis systems.',
+  },
+  trainingData: {
+    title: 'What is training data?',
+    text: 'Training data is a set of examples that teach an AI model how to make decisions. The more good examples you give it, the better it becomes at recognizing patterns. In this activity, you will label images so the model learns from your choices.',
+  },
+  computerVision: {
+    title: 'How computer vision works',
+    text: 'Computer vision lets AI understand pictures and video. It looks for shapes, colors, and objects to decide what it sees. In this activity, you will find living things in the scene to help the vision system learn what counts as life.',
+  },
+  nlp: {
+    title: 'What is NLP?',
+    text: 'Natural language processing (NLP) helps computers read and understand human language. It can tell whether a sentence is happy, sad, or neutral. In this activity, you will teach the AI to recognize sentiment in text and then try it yourself.',
+  },
+  regression: {
+    title: 'What is regression?',
+    text: 'Regression is a way for AI to predict a number based on other data. For example, it can estimate test scores from study hours and sleep. In this activity, you will move the sliders and see how the prediction changes.',
+  },
+  clustering: {
+    title: 'What is clustering?',
+    text: 'Clustering groups items that are similar without using labels. It helps AI discover patterns on its own. In this activity, you will assign dots to camps based on their natural groups so the AI can form clusters.',
+  },
+  dataTypes: {
+    title: 'Why data types matter',
+    text: 'Different kinds of data need different handling. Structured data has rows and columns, while unstructured data is free-form like photos or text. This activity asks you to identify the right data type for each example.',
+  },
+  aiWorkflow: {
+    title: 'The AI workflow',
+    text: 'Every AI system follows a series of steps: define the problem, collect data, clean it, train the model, then test it. In this activity, you will put these steps in the correct order so the AI pipeline can run smoothly.',
+  },
+  finalMission: {
+    title: 'The final mission',
+    text: 'The final mission brings together everything you learned: classification, training data, vision, language, regression, clustering, and workflow. Solve each system challenge and get ready for the final boss battle.',
+  },
 };
 
 const aiItems = [
@@ -140,11 +181,18 @@ const novaGateStyle: CSSProperties = {
   textAlign: 'center',
 };
 
+const typingSoundUrl = new URL('../soundreality-keyboard-typing-sfx-525007.mp3', import.meta.url).href;
+
 const novaBubbleStyle: CSSProperties = {
   ...cardStyle,
-  maxWidth: 820,
+  width: 'min(900px, 90vw)',
+  maxWidth: 900,
   textAlign: 'left',
   border: '1px solid rgba(75,255,165,0.24)',
+  paddingLeft: 32,
+  paddingRight: 24,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
 };
 
 const novaNameStyle: CSSProperties = {
@@ -346,10 +394,65 @@ function GlobalStyles() {
   );
 }
 
-function NovaGate({ lines, onDone }: { lines: string[]; onDone: () => void }) {
+function NovaGate({
+  lines,
+  onDone,
+  askName,
+  onNameSubmit,
+  detail,
+}: {
+  lines: string[];
+  onDone?: () => void;
+  askName?: boolean;
+  onNameSubmit?: (name: string) => void;
+  detail?: { title: string; text: string };
+}) {
   const [idx, setIdx] = useState(0);
   const [text, setText] = useState('');
   const [done, setDone] = useState(false);
+  const [name, setName] = useState('');
+  const [lineKey, setLineKey] = useState(() => lines.join('\n'));
+  const [showDetail, setShowDetail] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const newKey = lines.join('\n');
+    if (newKey !== lineKey) {
+      setLineKey(newKey);
+      setIdx(0);
+      setText('');
+      setDone(false);
+      setShowDetail(false);
+      if (!askName) setName('');
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    }
+  }, [lines, askName, lineKey]);
+
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio(typingSoundUrl);
+      audioRef.current.loop = true;
+      audioRef.current.volume = 0.22;
+    }
+    const audio = audioRef.current;
+    audio.pause();
+    audio.currentTime = 0;
+    void audio.play().catch(() => {});
+    return () => {
+      audio.pause();
+      audio.currentTime = 0;
+    };
+  }, [lineKey]);
+
+  useEffect(() => {
+    if (done && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  }, [done]);
 
   useEffect(() => {
     if (idx >= lines.length) {
@@ -358,33 +461,18 @@ function NovaGate({ lines, onDone }: { lines: string[]; onDone: () => void }) {
     }
     let i = 0;
     setText('');
-    const line = lines[idx] ?? '';
-    const audio = new Audio(typingSoundUrl);
-    audio.loop = true;
-    audio.volume = 0.54;
-    audio.currentTime = 0;
-    audio.play().catch(() => {
-      // Autoplay may be blocked until user interaction; sound will start later if allowed.
-    });
-
+    const currentLine = lines[idx] || '';
     const t = window.setInterval(() => {
-      if (i < line.length) {
-        setText((p) => p + line.charAt(i));
-        i += 1;
-      } else {
+      if (i >= currentLine.length) {
         window.clearInterval(t);
-        audio.pause();
-        audio.currentTime = 0;
         window.setTimeout(() => setIdx((p) => p + 1), 700);
+        return;
       }
-    }, 45);
-
-    return () => {
-      window.clearInterval(t);
-      audio.pause();
-      audio.currentTime = 0;
-    };
-  }, [idx, lines]);
+      setText(currentLine.slice(0, i + 1));
+      i += 1;
+    }, 75);
+    return () => window.clearInterval(t);
+  }, [idx, lineKey, lines]);
 
   return (
     <div style={novaGateStyle}>
@@ -392,11 +480,54 @@ function NovaGate({ lines, onDone }: { lines: string[]; onDone: () => void }) {
         <div style={{ fontSize: '3.5rem', animation: 'float 3s ease-in-out infinite alternate' }}>🚀</div>
         <div style={novaBubbleStyle}>
           <span style={novaNameStyle}>Captain Nova</span>
-          <p style={{ margin: 0, color: '#d8eeff', fontSize: '1.05rem', lineHeight: 1.7 }}>
-            {text}<span style={{ animation: 'blink 0.9s step-end infinite', color: '#4bffa5' }}>▌</span>
+          <p style={{ margin: 0, color: '#d8eeff', fontSize: '1.05rem', lineHeight: 1.7, minHeight: '5rem' }}>
+            {text}
+            <span style={{ animation: 'blink 0.9s step-end infinite', color: '#4bffa5' }}>▌</span>
           </p>
+          {showDetail && detail && (
+            <div style={{ marginTop: 18, color: '#c7d8f0', fontSize: '0.98rem', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+              <strong>{detail.title}</strong>
+              <p style={{ margin: '12px 0 0' }}>{detail.text}</p>
+            </div>
+          )}
+          {askName && done && (
+            <div style={{ marginTop: 18, display: 'grid', gap: 12 }}>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Enter your name"
+                style={{ width: '100%', minHeight: 48, borderRadius: 16, border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,.08)', color: '#f7fbff', padding: '0 14px' }}
+              />
+              <button
+                style={primaryBtn}
+                onClick={() => {
+                  if (!name.trim()) return;
+                  onNameSubmit?.(name.trim());
+                }}
+                disabled={!name.trim()}
+              >
+                Continue
+              </button>
+            </div>
+          )}
         </div>
-        {done && <button style={primaryBtn} onClick={onDone}>Let's Go →</button>}
+        {!askName && done && (
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {detail && !showDetail && (
+              <button
+                style={{ ...ghostBtn, minWidth: 'auto', padding: '13px 22px' }}
+                onClick={() => setShowDetail(true)}
+              >
+                Read in detail about the concept
+              </button>
+            )}
+            {onDone && (
+              <button style={primaryBtn} onClick={onDone}>
+                {showDetail ? 'Continue' : "Let's Go →"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -518,7 +649,8 @@ function LandingScreen({ onStart }: { onStart: () => void }) {
   );
 }
 
-function WhatIsAISection({ onComplete }: { onComplete: CompleteHandler }) {
+function WhatIsAISection({ onComplete, onNameCaptured }: { onComplete: CompleteHandler, onNameCaptured: (name: string) => void }) {
+  const playerName = useContext(PlayerContext);
   const [gateOpen, setGateOpen] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [labelled, setLabelled] = useState<Record<string, true>>({});
@@ -526,8 +658,12 @@ function WhatIsAISection({ onComplete }: { onComplete: CompleteHandler }) {
   const [hint, setHint] = useState('');
   const [shakeId, setShakeId] = useState('');
 
+  if (!playerName) {
+    return <NovaGate lines={["Greetings, explorer. I am Captain Nova.", "NeoCity needs your help.", "What should I call you?"]} askName onNameSubmit={onNameCaptured} />;
+  }
+
   if (!gateOpen) {
-    return <NovaGate lines={["NeoCity's recommendation engines are confused.", 'Label tools as AI or fixed rules so the city classifier can learn.']} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[`Alright, ${playerName}.`, "NeoCity's recommendation engines are confused.", 'Label tools as AI or fixed rules so the city classifier can learn.']} onDone={() => setGateOpen(true)} />;
   }
 
   const remaining = aiItems.filter((item) => !labelled[item.id]);
@@ -604,7 +740,7 @@ function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) 
   const [wrongBin, setWrongBin] = useState('');
 
   if (!gateOpen) {
-    return <NovaGate lines={['The factory conveyor is moving again.', 'Classify each object by its features and the bins will teach the model.']} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={['The factory conveyor is moving again.', 'Classify each object by its features and the bins will teach the model.']} detail={sectionDetails.classification} onDone={() => setGateOpen(true)} />;
   }
 
   const done = index >= factoryItems.length;
@@ -686,7 +822,7 @@ function TrainingDataSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [learning, setLearning] = useState(false);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The image model is empty.', 'Become the trainer: label examples and watch confidence grow.']} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={['The image model is empty.', 'Become the trainer: label examples and watch confidence grow.']} detail={sectionDetails.trainingData} onDone={() => setGateOpen(true)} />;
   }
 
   const done = round >= trainingRounds.length;
@@ -770,7 +906,7 @@ function ComputerVisionSection({ onComplete }: { onComplete: CompleteHandler }) 
   const [flash, setFlash] = useState('');
 
   if (!gateOpen) {
-    return <NovaGate lines={['The vision grid is scanning the city.', 'Detect living things only so NeoCity can protect parks and pedestrians.']} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={['The vision grid is scanning the city.', 'Detect living things only so NeoCity can protect parks and pedestrians.']} detail={sectionDetails.computerVision} onDone={() => setGateOpen(true)} />;
   }
 
   const objects = [
@@ -837,7 +973,7 @@ function NLPSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [shake, setShake] = useState(false);
 
   if (!gateOpen) {
-    return <NovaGate lines={['Language Harbor is full of scrambled messages.', 'Tag the feeling in each sentence and train the NLP beacon.']} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={['Language Harbor is full of scrambled messages.', 'Tag the feeling in each sentence and train the NLP beacon.']} detail={sectionDetails.nlp} onDone={() => setGateOpen(true)} />;
   }
 
   const done = index >= sentimentMessages.length;
@@ -907,61 +1043,22 @@ function demoSentiment(text: string) {
 
 function RegressionSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [gateOpen, setGateOpen] = useState(false);
-  const [hours, setHours] = useState(5);
-  const [sleep, setSleep] = useState(3);
-  const [locked, setLocked] = useState(false);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The observatory predicts city energy scores.', 'Move your data point and watch the regression prediction redraw live.']} onDone={() => setGateOpen(true)} />;
+    return (
+      <NovaGate
+        lines={['The Neural Prediction Terminal is online.', 'Add study and sleep samples to teach the AI the hidden relationship.']}
+        detail={sectionDetails.regression}
+        onDone={() => setGateOpen(true)}
+      />
+    );
   }
-
-  const predicted = 30 + hours * 4 + sleep * 2;
 
   return (
     <>
-      <SectionHeader section="regression" note="Drag the sliders to add your study data. Watch the AI prediction update." />
-      <div className="grid cols2">
-        <div style={cardStyle}>
-          <RegressionSvg hours={hours} predicted={predicted} locked={locked} />
-          <h3>📍 Predicted: {predicted} marks</h3>
-          <p className="small">Base(30) + Hours({hours}×4) + Sleep({sleep}×2) = {predicted}</p>
-        </div>
-        <div style={cardStyle}>
-          <label className="grid" style={{ gap: 8, marginBottom: 14 }}>
-            📚 Study hours: <b>{hours}</b>
-            <input type="range" min="1" max="10" value={hours} onChange={(event) => setHours(Number(event.target.value))} disabled={locked} />
-          </label>
-          <label className="grid" style={{ gap: 8, marginBottom: 14 }}>
-            😴 Sleep quality: <b>{sleep}</b>
-            <input type="range" min="1" max="5" value={sleep} onChange={(event) => setSleep(Number(event.target.value))} disabled={locked} />
-          </label>
-          <button style={primaryBtn} disabled={locked} onClick={() => { setLocked(true); playSound('success'); }}>Lock Prediction</button>
-          {locked && (
-            <>
-              <p className="small">Swiggy uses regression to predict your delivery time. Netflix uses it to predict how many stars you'll give a movie.</p>
-              <button style={primaryBtn} onClick={onComplete}>Power Next District</button>
-            </>
-          )}
-        </div>
-      </div>
+      <SectionHeader section="regression" note="Train the neural predictor by adding observations and watch the line learn." />
+      <RegressionLab onComplete={onComplete} />
     </>
-  );
-}
-
-function RegressionSvg({ hours, predicted, locked }: { hours: number; predicted: number; locked: boolean }) {
-  const sx = (x: number) => 35 + x * 28;
-  const sy = (y: number) => 200 - y * 1.6;
-  const historical = [[1, 38], [2, 42], [4, 55], [5, 60], [7, 72], [9, 84]];
-  return (
-    <svg className="svgBox" viewBox="0 0 340 230">
-      <line x1="35" y1="200" x2="315" y2="200" stroke="#8bb0ff" />
-      <line x1="35" y1="30" x2="35" y2="200" stroke="#8bb0ff" />
-      <text x="170" y="224" fill="#b6c7dc" textAnchor="middle">Study Hours</text>
-      <text x="12" y="118" fill="#b6c7dc" transform="rotate(-90 12 118)">Marks</text>
-      <line x1={sx(1)} y1={sy(38)} x2={sx(10)} y2={sy(30 + 10 * 4 + 3 * 2)} stroke={locked ? '#5efc82' : '#4b9bff'} strokeWidth="4" strokeLinecap="round" />
-      {historical.map(([x, y]) => <circle key={`${x}-${y}`} cx={sx(x)} cy={sy(y)} r="7" fill="#4b9bff" />)}
-      <circle cx={sx(hours)} cy={sy(predicted)} r="10" fill={locked ? '#5efc82' : '#ffd76a'} filter="drop-shadow(0 0 10px #ffd76a)" />
-    </svg>
   );
 }
 
@@ -973,7 +1070,7 @@ function ClusteringSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [checked, setChecked] = useState(false);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The forest map lost its natural groups.', 'Assign dots to camps by category, then check the clusters.']} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={['The forest map lost its natural groups.', 'Assign dots to camps by category, then check the clusters.']} detail={sectionDetails.clustering} onDone={() => setGateOpen(true)} />;
   }
 
   const dots = [
@@ -1092,7 +1189,7 @@ function DataTypesSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [shake, setShake] = useState(false);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The Data Vault accepts four data signatures.', 'Solve each riddle to rotate a vault ring.']} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={['The Data Vault accepts four data signatures.', 'Solve each riddle to rotate a vault ring.']} detail={sectionDetails.dataTypes} onDone={() => setGateOpen(true)} />;
   }
 
   const riddles = [
@@ -1174,7 +1271,7 @@ function AIWorkflowSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [hint, setHint] = useState('');
 
   if (!gateOpen) {
-    return <NovaGate lines={['The pipeline machine is out of order.', 'Place the steps in sequence so energy can flow.']} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={['The pipeline machine is out of order.', 'Place the steps in sequence so energy can flow.']} detail={sectionDetails.aiWorkflow} onDone={() => setGateOpen(true)} />;
   }
 
   const correct = slots.every((step, index) => step === workflowSteps[index]);
@@ -1254,10 +1351,41 @@ function FinalMissionSection({ onComplete, addBossXp }: { onComplete: CompleteHa
   const [gateOpen, setGateOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [bossStarted, setBossStarted] = useState(false);
-  const [bossIndex, setBossIndex] = useState(0);
-  const [health, setHealth] = useState(100);
-  const [hint, setHint] = useState('');
   const [coreReady, setCoreReady] = useState(false);
+  const [hint, setHint] = useState('');
+
+  const bossQuestions: BossQuestion[] = [
+    {
+      prompt: 'What does classification do?',
+      options: ['Predicts a number', 'Puts items into categories', 'Deletes data'],
+      correct: 'Puts items into categories',
+      explanation: 'Classification groups items by shared features so the AI can separate them into categories.',
+    },
+    {
+      prompt: 'Which data helps a regression model predict a score?',
+      options: ['Study hours and sleep', 'Movie genres', 'Color of a shirt'],
+      correct: 'Study hours and sleep',
+      explanation: 'Regression uses numeric input data, like hours and sleep, to estimate another number such as a score.',
+    },
+    {
+      prompt: 'What does NLP analyze?',
+      options: ['Language', 'Temperature', 'Road speed'],
+      correct: 'Language',
+      explanation: 'NLP is all about understanding text and speech, not physical measurements.',
+    },
+    {
+      prompt: 'What does clustering discover?',
+      options: ['Labels provided by humans', 'Natural groups in data', 'Numbers only'],
+      correct: 'Natural groups in data',
+      explanation: 'Clustering finds similar items without preassigned labels, grouping them by their patterns.',
+    },
+    {
+      prompt: 'What is the final attack mode?',
+      options: ['A small pulse', 'A massive beam', 'A defensive shield'],
+      correct: 'A massive beam',
+      explanation: 'The final attack becomes a huge beam that finishes the boss and ends the battle.',
+    },
+  ];
 
   useEffect(() => {
     if (step === 4 && !bossStarted) {
@@ -1267,32 +1395,15 @@ function FinalMissionSection({ onComplete, addBossXp }: { onComplete: CompleteHa
   }, [step, bossStarted]);
 
   if (!gateOpen) {
-    return <NovaGate lines={['Only the AI Core remains.', 'Solve four systems in sequence, then face the final rapid-fire battle.']} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={['Only the AI Core remains.', 'Stabilize the systems, then enter AETHERION’s final showdown.']} detail={sectionDetails.finalMission} onDone={() => setGateOpen(true)} />;
   }
 
   if (bossStarted) {
     return (
       <BossBattle
-        index={bossIndex}
-        health={health}
-        hint={hint}
-        onAnswer={(correct) => {
-          if (correct) {
-            addBossXp();
-            playSound('success');
-          } else {
-            setHealth((prev) => Math.max(0, prev - 20));
-            playSound('error');
-          }
-          setHint(correct ? '' : 'Core health dropped, but the mission continues.');
-          if (bossIndex >= 4) onComplete();
-          else setBossIndex((prev) => prev + 1);
-        }}
-        onTimeout={() => {
-          setHealth((prev) => Math.max(0, prev - 20));
-          if (bossIndex >= 4) onComplete();
-          else setBossIndex((prev) => prev + 1);
-        }}
+        questions={bossQuestions}
+        onBossDamage={addBossXp}
+        onVictory={onComplete}
       />
     );
   }
@@ -1367,55 +1478,6 @@ function MiniClusters() {
   );
 }
 
-function BossBattle({
-  index,
-  health,
-  hint,
-  onAnswer,
-  onTimeout,
-}: {
-  index: number;
-  health: number;
-  hint: string;
-  onAnswer: (correct: boolean) => void;
-  onTimeout: () => void;
-}) {
-  const questions = [
-    { q: 'What does classification do?', options: ['Predicts a number', 'Puts items into categories', 'Deletes data'], answer: 'Puts items into categories' },
-    { q: 'What does training data contain?', options: ['Examples', 'Only music', 'Passwords'], answer: 'Examples' },
-    { q: 'Which data type changes over time?', options: ['Spatial', 'Time-Series', 'Unstructured'], answer: 'Time-Series' },
-    { q: 'What does NLP work with?', options: ['Language', 'Fuel', 'Bridges'], answer: 'Language' },
-    { q: 'What finds groups without labels?', options: ['Clustering', 'Alarm clock', 'Calculator'], answer: 'Clustering' },
-  ];
-
-  useEffect(() => {
-    const id = window.setTimeout(onTimeout, 15000);
-    return () => window.clearTimeout(id);
-  }, [index, onTimeout]);
-
-  const question = questions[index];
-  if (!question) return null;
-
-  return (
-    <>
-      <SectionHeader section="finalMission" note="Answer quickly. Wrong answers drain the AI Core health bar." />
-      <div style={cardStyle}>
-        <b>AI Core Health: {health}%</b>
-        <div style={{ marginTop: 10 }}><ProgressBar value={health} color="linear-gradient(90deg,#ff6464,#ffd76a,#5efc82)" /></div>
-        <div className="bar timer" style={{ marginTop: 12 }}><span style={{ background: '#ffd76a' }} /></div>
-      </div>
-      <div style={{ ...cardStyle, marginTop: 18 }}>
-        <div className="kicker">Boss Question {index + 1}/5</div>
-        <h3>{question.q}</h3>
-        <div className="grid cols3">
-          {question.options.map((option) => <button key={option} style={ghostBtn} onClick={() => onAnswer(option === question.answer)}>{option}</button>)}
-        </div>
-        <p className="hint">{hint}</p>
-      </div>
-    </>
-  );
-}
-
 function VictoryScreen({ xp, completedCount, onRestart }: { xp: number; completedCount: number; onRestart: () => void }) {
   const confetti = useMemo(() => Array.from({ length: 40 }, (_, index) => ({
     id: index,
@@ -1441,14 +1503,16 @@ function SectionScreen({
   currentSection,
   onComplete,
   addBossXp,
+  onNameCaptured,
 }: {
   currentSection: SectionKey;
   onComplete: () => void;
   addBossXp: () => void;
+  onNameCaptured: (name: string) => void;
 }) {
   switch (currentSection) {
     case 'whatIsAI':
-      return <WhatIsAISection onComplete={onComplete} />;
+      return <WhatIsAISection onComplete={onComplete} onNameCaptured={onNameCaptured} />;
     case 'classification':
       return <ClassificationSection onComplete={onComplete} />;
     case 'trainingData':
@@ -1475,6 +1539,7 @@ function SectionScreen({
 
 function App() {
   const [xp, setXp] = useState(0);
+  const [playerName, setPlayerName] = useState('');
   const [completed, setCompleted] = useState<MissionKey[]>([]);
   const [currentSection, setCurrentSection] = useState<SectionKey>('landing');
   const [victory, setVictory] = useState(false);
@@ -1496,6 +1561,7 @@ function App() {
 
   function restart() {
     setXp(0);
+    setPlayerName('');
     setCompleted([]);
     setCurrentSection('landing');
     setVictory(false);
@@ -1509,7 +1575,7 @@ function App() {
   }
 
   return (
-    <>
+    <PlayerContext.Provider value={playerName}>
       <GlobalStyles />
       <div className="app">
         <Sidebar
@@ -1536,12 +1602,13 @@ function App() {
                 currentSection={currentSection}
                 onComplete={completeCurrent}
                 addBossXp={() => setXp((prev) => prev + 10)}
+                onNameCaptured={(name) => setPlayerName(name)}
               />
             )}
           </section>
         </main>
       </div>
-    </>
+    </PlayerContext.Provider>
   );
 }
 
