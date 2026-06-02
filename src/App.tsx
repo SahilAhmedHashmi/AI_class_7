@@ -35,6 +35,8 @@ const sectionOrder: SectionKey[] = [
 
 const missionKeys = sectionOrder.filter((key): key is MissionKey => key !== 'landing');
 
+const typingSoundUrl = new URL('../soundreality-keyboard-typing-sfx-525007.mp3', import.meta.url).href;
+
 const sectionTitles: Record<SectionKey, string> = {
   landing: 'Launch',
   whatIsAI: 'What is AI?',
@@ -356,15 +358,32 @@ function NovaGate({ lines, onDone }: { lines: string[]; onDone: () => void }) {
     }
     let i = 0;
     setText('');
+    const line = lines[idx] ?? '';
+    const audio = new Audio(typingSoundUrl);
+    audio.loop = true;
+    audio.volume = 0.54;
+    audio.currentTime = 0;
+    audio.play().catch(() => {
+      // Autoplay may be blocked until user interaction; sound will start later if allowed.
+    });
+
     const t = window.setInterval(() => {
-      setText((p) => p + lines[idx][i]);
-      i += 1;
-      if (i >= lines[idx].length) {
+      if (i < line.length) {
+        setText((p) => p + line.charAt(i));
+        i += 1;
+      } else {
         window.clearInterval(t);
+        audio.pause();
+        audio.currentTime = 0;
         window.setTimeout(() => setIdx((p) => p + 1), 700);
       }
-    }, 22);
-    return () => window.clearInterval(t);
+    }, 45);
+
+    return () => {
+      window.clearInterval(t);
+      audio.pause();
+      audio.currentTime = 0;
+    };
   }, [idx, lines]);
 
   return (

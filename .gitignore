@@ -1,0 +1,44 @@
+# Build output
+/dist/
+/build/
+
+# Dependencies
+/node_modules/
+/venv/
+
+# Local environment files
+.env
+.env.*
+
+# Vite cache
+/.vite/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor folders
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# Project scratch files
+status.txt
+diff.txt
+app_diff_after.txt
+
+# Ignore generated assets in dist
+/dist/assets/
