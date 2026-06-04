@@ -27,6 +27,16 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
   const [studyHours, setStudyHours] = useState<number>(6);
   const [predictionPoint, setPredictionPoint] = useState<{ x: number; y: number } | null>(null);
   const previousStatus = useRef(status);
+  const isTrainingActive = phase === 'training' && status === 'LEARNING' && points.length >= maxTrainingPoints;
+  const isTrainingFinishing = phase === 'training' && status === 'TRAINING COMPLETE';
+  const friendlyStatus =
+    phase === 'testing'
+      ? 'Ready to make predictions'
+      : status === 'TRAINING COMPLETE'
+        ? 'Ready for testing'
+        : points.length >= maxTrainingPoints
+          ? 'AI is learning...'
+          : `Add ${maxTrainingPoints - points.length} more examples to teach the AI`;
 
   useEffect(() => {
     if (status === 'TRAINING COMPLETE' && previousStatus.current !== 'TRAINING COMPLETE') {
@@ -69,8 +79,8 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
           </div>
         </div>
         <div className={`status-pill ${status === 'TRAINING COMPLETE' ? 'optimized' : status === 'LEARNING' ? 'training' : 'waiting'}`}>
-          <span className="status-key">Model Status</span>
-          <strong>{status}</strong>
+          <span className="status-key">Next Step</span>
+          <strong>{friendlyStatus}</strong>
         </div>
       </div>
 
@@ -91,18 +101,14 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
       )}
 
       {phase === 'training' ? (
-        <div className="stat-grid">
+        <div className="stat-grid training-stats">
           <div className="stat-card">
             <div className="stat-label">Training Examples</div>
             <div className="stat-value">{points.length} / {maxTrainingPoints}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Learning Flow</div>
-            <div className="stat-value">Automatic</div>
-          </div>
-          <div className="stat-card">
             <div className="stat-label">Goal</div>
-            <div className="stat-value">{points.length < maxTrainingPoints ? 'Add Points' : 'Finishing'}</div>
+            <div className="stat-value">{points.length < maxTrainingPoints ? 'Add Examples' : 'Training'}</div>
           </div>
         </div>
       ) : (
@@ -131,6 +137,20 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
             </svg>
           </div>
         </div>
+
+        {(isTrainingActive || isTrainingFinishing) && (
+          <div className="training-feedback" role="status" aria-live="polite">
+            <div className="training-spinner" aria-hidden />
+            <div>
+              <div className="training-feedback-title">
+                {isTrainingFinishing ? 'Finding the pattern in the data...' : 'AI is learning from your examples...'}
+              </div>
+              <div className="training-feedback-copy">
+                {isTrainingFinishing ? 'Training is almost done.' : 'Training the model...'}
+              </div>
+            </div>
+          </div>
+        )}
 
         <RegressionGraph
           points={phase === 'training' ? points : []}
