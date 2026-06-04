@@ -355,18 +355,94 @@ function GlobalStyles() {
       }
       .camera {
         position:relative; min-height:430px; overflow:hidden;
-        background:radial-gradient(circle at 50% 50%, rgba(75,155,255,.08), transparent 38%),
-          repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 2px, transparent 2px 5px), #07101f;
+        border-color:rgba(75,255,165,.22) !important;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(75,155,255,.1), transparent 38%),
+          linear-gradient(rgba(75,255,165,.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(75,255,165,.03) 1px, transparent 1px),
+          repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 2px, transparent 2px 5px),
+          #07101f;
+        background-size:auto, 34px 34px, 34px 34px, auto, auto;
+        box-shadow:inset 0 0 90px rgba(75,255,165,.08), 0 24px 70px rgba(0,0,0,.35);
       }
-      .scanLine { position:absolute; left:0; right:0; top:0; height:3px; background:#4bffa5; box-shadow:0 0 24px #4bffa5; animation:scanLine 2s linear infinite; }
+      .camera::before {
+        content:''; position:absolute; inset:0; pointer-events:none;
+        background:radial-gradient(circle at 50% 50%, transparent 52%, rgba(0,0,0,.34) 100%);
+        z-index:1;
+      }
+      .camera.calibrated {
+        box-shadow:inset 0 0 120px rgba(75,255,165,.2), 0 0 44px rgba(75,255,165,.16), 0 24px 70px rgba(0,0,0,.35);
+      }
+      .scanLine {
+        position:absolute; left:0; right:0; top:-24%; height:3px; z-index:2;
+        background:#4bffa5; box-shadow:0 0 24px #4bffa5, 0 0 70px rgba(75,255,165,.52);
+        animation:scannerSweep 3s linear infinite; will-change:transform;
+      }
+      .scanLine::before {
+        content:''; position:absolute; left:0; right:0; bottom:3px; height:116px;
+        background:linear-gradient(0deg, rgba(75,255,165,.23), rgba(75,255,165,.08) 42%, transparent);
+        filter:blur(.2px); pointer-events:none;
+      }
+      .camera.calibrated .scanLine {
+        top:50%; animation:calibratedLine 1.15s ease-in-out infinite; transform:translateY(-50%);
+      }
+      .camera.calibrated .scanLine::before { height:210px; opacity:.55; }
+      .calibratedText {
+        position:absolute; left:50%; top:50%; z-index:5; transform:translate(-50%, -50%);
+        padding:10px 14px; border-radius:10px; border:1px solid rgba(75,255,165,.56);
+        background:rgba(4,21,31,.72); color:#4bffa5; font-size:.82rem; font-weight:900;
+        letter-spacing:.12em; text-transform:uppercase; text-shadow:0 0 16px rgba(75,255,165,.75);
+        animation:calibratedText .7s ease both;
+      }
+      .scannerHud {
+        position:absolute; right:18px; top:16px; z-index:6;
+        display:grid; gap:8px; min-width:190px; padding:12px 14px; border-radius:14px;
+        border:1px solid rgba(75,255,165,.26); background:rgba(4,16,28,.72);
+        box-shadow:0 0 28px rgba(75,255,165,.1); backdrop-filter:blur(10px);
+      }
+      .scannerHud .kicker { font-size:.64rem; }
+      .scannerHudValue { color:#dfffee; font-weight:900; font-size:.9rem; }
+      .scannerHudBar { height:5px; border-radius:99px; background:rgba(255,255,255,.1); overflow:hidden; }
+      .scannerHudBar span { display:block; height:100%; border-radius:inherit; background:#4bffa5; box-shadow:0 0 12px #4bffa5; transition:width .28s ease; }
+      .cameraFlash {
+        position:absolute; inset:0; z-index:8; pointer-events:none; background:#dfffee;
+        animation:cameraFlash .52s ease-out both;
+      }
       .object {
-        position:absolute; width:86px; height:86px; border-radius:22px; background:rgba(255,255,255,.05);
-        border:1px solid rgba(255,255,255,.09); display:grid; place-items:center; font-size:2.6rem;
+        position:absolute; width:86px; height:86px; border-radius:18px; background:rgba(255,255,255,.052);
+        border:1px solid rgba(255,255,255,.12); display:grid; place-items:center; font-size:2.6rem;
+        color:#f7fbff; overflow:visible; z-index:3; box-shadow:0 12px 30px rgba(0,0,0,.28), inset 0 0 24px rgba(75,155,255,.04);
+        animation:ambientDrift var(--drift-duration, 8s) ease-in-out infinite alternate, proximityGlow 3s linear infinite;
+        animation-delay:var(--drift-delay, 0s), var(--scan-delay, 0s);
+        transform:translate3d(0,0,0); will-change:transform, filter;
       }
-      .boxLock { position:absolute; inset:-4px; border:3px solid #4bffa5; border-radius:24px; animation:drawBorder .4s ease both; pointer-events:none; }
+      .object:hover { border-color:rgba(75,255,165,.42); background:rgba(75,255,165,.08); }
+      .object.locked { border-color:rgba(75,255,165,.46); background:rgba(75,255,165,.08); }
+      .object.rejecting { animation:rejectShake .32s ease, proximityGlow 3s linear infinite; animation-delay:0s, var(--scan-delay, 0s); }
+      .objectIcon { position:relative; z-index:2; filter:drop-shadow(0 0 12px rgba(75,155,255,.28)); }
+      .lockRipple {
+        position:absolute; inset:-10px; border-radius:50%; border:2px solid rgba(75,255,165,.8);
+        animation:targetRipple .48s ease-out both; pointer-events:none; z-index:0;
+      }
+      .focusReticle, .rejectReticle { position:absolute; inset:-8px; pointer-events:none; z-index:3; }
+      .focusReticle { animation:reticleSnap .32s cubic-bezier(.16,1,.3,1) both; }
+      .rejectReticle { animation:rejectBox .58s steps(2,end) both; }
+      .corner {
+        position:absolute; width:19px; height:19px; border-color:#4bffa5; filter:drop-shadow(0 0 8px rgba(75,255,165,.8));
+      }
+      .rejectReticle .corner { border-color:#ff6464; filter:drop-shadow(0 0 8px rgba(255,100,100,.75)); }
+      .corner.tl { left:0; top:0; border-left:3px solid; border-top:3px solid; }
+      .corner.tr { right:0; top:0; border-right:3px solid; border-top:3px solid; }
+      .corner.bl { left:0; bottom:0; border-left:3px solid; border-bottom:3px solid; }
+      .corner.br { right:0; bottom:0; border-right:3px solid; border-bottom:3px solid; }
       .tag {
-        position:absolute; top:-27px; left:0; white-space:nowrap; font-size:.72rem;
-        background:#4bffa5; color:#04151f; padding:5px 8px; border-radius:8px; font-weight:900;
+        position:absolute; top:-35px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:.68rem;
+        background:rgba(5,22,31,.94); color:#4bffa5; border:1px solid rgba(75,255,165,.55);
+        padding:5px 8px; border-radius:6px; font-weight:900; letter-spacing:.06em;
+        overflow:hidden; max-width:0; animation:typeTag .62s steps(18,end) .08s forwards; z-index:4;
+      }
+      .tag.rejectTag {
+        color:#ff7d7d; border-color:rgba(255,100,100,.65); animation:rejectTag .95s ease both; max-width:none;
       }
       .chatBubble {
         max-width:760px; padding:18px 20px; border-radius:24px 24px 24px 8px;
@@ -575,6 +651,46 @@ function GlobalStyles() {
       @keyframes celebrate { 0%{transform:scale(1)} 30%{transform:scale(1.06);box-shadow:0 0 0 6px rgba(94,252,130,0.35)} 60%{transform:scale(0.97)} 100%{transform:scale(1)} }
       @keyframes pulseGlow { 0%,100%{box-shadow:0 0 0 0 rgba(75,155,255,0.4)} 50%{box-shadow:0 0 0 12px rgba(75,155,255,0)} }
       @keyframes scanLine { 0%{top:0%;opacity:0.9} 100%{top:100%;opacity:0} }
+      @keyframes scannerSweep { from { transform:translate3d(0, -10%, 0); } to { transform:translate3d(0, 620px, 0); } }
+      @keyframes calibratedLine { 0%,100%{opacity:.76;box-shadow:0 0 22px #4bffa5,0 0 54px rgba(75,255,165,.4)} 50%{opacity:1;box-shadow:0 0 36px #4bffa5,0 0 92px rgba(75,255,165,.72)} }
+      @keyframes calibratedText { from{opacity:0;transform:translate(-50%, -42%) scale(.96)} to{opacity:1;transform:translate(-50%, -50%) scale(1)} }
+      @keyframes cameraFlash { 0%{opacity:0} 14%{opacity:.88} 100%{opacity:0} }
+      @keyframes ambientDrift {
+        0%{transform:translate3d(0,0,0)}
+        35%{transform:translate3d(var(--drift-x, 4px), var(--drift-y, -5px), 0)}
+        70%{transform:translate3d(var(--drift-x-alt, -3px), var(--drift-y-alt, 4px), 0)}
+        100%{transform:translate3d(1px, -1px, 0)}
+      }
+      @keyframes proximityGlow {
+        0%,18%,100% { filter:brightness(1); border-color:rgba(255,255,255,.12); }
+        7% { filter:brightness(1.62) saturate(1.22); border-color:rgba(75,255,165,.68); box-shadow:0 12px 30px rgba(0,0,0,.28), 0 0 28px rgba(75,255,165,.28); }
+      }
+      @keyframes reticleSnap {
+        0%{transform:scale(1.28);opacity:0}
+        58%{transform:scale(.96);opacity:1}
+        100%{transform:scale(1);opacity:1}
+      }
+      @keyframes typeTag { from{max-width:0;opacity:1} to{max-width:180px;opacity:1} }
+      @keyframes targetRipple { from{transform:scale(.55);opacity:.9} to{transform:scale(1.55);opacity:0} }
+      @keyframes rejectShake {
+        0%,100%{transform:translateX(0)}
+        18%{transform:translateX(-9px)}
+        34%{transform:translateX(8px)}
+        52%{transform:translateX(-6px)}
+        70%{transform:translateX(5px)}
+      }
+      @keyframes rejectBox {
+        0%{opacity:0;clip-path:inset(50% 50% 50% 50%);transform:translateX(-3px)}
+        18%{opacity:1;clip-path:inset(0);transform:translateX(4px)}
+        42%{opacity:.78;clip-path:inset(0 8% 18% 0);transform:translateX(-5px)}
+        68%{opacity:.48;clip-path:inset(24% 0 0 12%);transform:translateX(3px)}
+        100%{opacity:0;clip-path:inset(50% 50% 50% 50%);transform:translateX(0)}
+      }
+      @keyframes rejectTag {
+        0%{opacity:0;transform:translate(-50%, 4px)}
+        16%,72%{opacity:1;transform:translate(-50%, 0)}
+        100%{opacity:0;transform:translate(-50%, -6px)}
+      }
       @keyframes drawBorder { from{clip-path:inset(0 100% 100% 0)} to{clip-path:inset(0 0 0 0)} }
       @keyframes confettiFall { to { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
       @keyframes readyPulse { 0%,100%{box-shadow:0 0 0 0 rgba(94,252,130,0.3)} 50%{box-shadow:0 0 0 10px rgba(94,252,130,0)} }
@@ -1281,19 +1397,20 @@ function ComputerVisionSection({ onComplete }: { onComplete: CompleteHandler }) 
   const [gateOpen, setGateOpen] = useState(false);
   const [found, setFound] = useState<string[]>([]);
   const [hint, setHint] = useState('');
-  const [flash, setFlash] = useState('');
+  const [feedback, setFeedback] = useState<{ id: string; key: number } | null>(null);
+  const [completeFlash, setCompleteFlash] = useState(false);
 
   if (!gateOpen) {
     return <NovaGate lines={['The vision grid is scanning the city.', 'Detect living things only so NeoCity can protect parks and pedestrians.']} detail={sectionDetails.computerVision} onDone={() => setGateOpen(true)} />;
   }
 
   const objects = [
-    { id: 'panda', icon: '🐼', x: 8, y: 15, living: true, label: 'Animal' },
-    { id: 'car', icon: '🚗', x: 43, y: 42, living: false, label: 'car' },
-    { id: 'bird', icon: '🐦', x: 76, y: 18, living: true, label: 'Animal' },
-    { id: 'tree', icon: '🌳', x: 16, y: 70, living: true, label: 'Plant' },
-    { id: 'light', icon: '🚦', x: 70, y: 57, living: false, label: 'traffic light' },
-    { id: 'house', icon: '🏠', x: 82, y: 76, living: false, label: 'house' },
+    { id: 'panda', icon: '🐼', x: 8, y: 15, living: true, label: 'Animal', tag: '[ LIVING: 99% ]', driftX: '4px', driftY: '-5px', driftXAlt: '-3px', driftYAlt: '3px', driftDuration: '8.4s', driftDelay: '-1.6s' },
+    { id: 'car', icon: '🚗', x: 43, y: 42, living: false, label: 'car', tag: '[ 0% MATCH ]', driftX: '-5px', driftY: '3px', driftXAlt: '4px', driftYAlt: '-4px', driftDuration: '9.2s', driftDelay: '-3.1s' },
+    { id: 'bird', icon: '🐦', x: 76, y: 18, living: true, label: 'Animal', tag: '[ ENTITY DETECTED ]', driftX: '3px', driftY: '5px', driftXAlt: '-4px', driftYAlt: '-2px', driftDuration: '7.8s', driftDelay: '-.7s' },
+    { id: 'tree', icon: '🌳', x: 16, y: 70, living: true, label: 'Plant', tag: '[ LIVING: 99% ]', driftX: '-4px', driftY: '-3px', driftXAlt: '5px', driftYAlt: '4px', driftDuration: '10.1s', driftDelay: '-4.5s' },
+    { id: 'light', icon: '🚦', x: 70, y: 57, living: false, label: 'traffic light', tag: '[ NON-LIVING ]', driftX: '5px', driftY: '-4px', driftXAlt: '-2px', driftYAlt: '5px', driftDuration: '8.9s', driftDelay: '-2.4s' },
+    { id: 'house', icon: '🏠', x: 82, y: 76, living: false, label: 'house', tag: '[ NON-LIVING ]', driftX: '-3px', driftY: '4px', driftXAlt: '3px', driftYAlt: '-5px', driftDuration: '9.7s', driftDelay: '-5.2s' },
   ];
   const done = found.length === 3;
 
@@ -1301,33 +1418,80 @@ function ComputerVisionSection({ onComplete }: { onComplete: CompleteHandler }) 
     if (item.living) {
       if (!found.includes(item.id)) {
         playSound('success');
-        setFound((prev) => [...prev, item.id]);
+        setFound((prev) => {
+          const next = [...prev, item.id];
+          if (next.length === 3) {
+            setCompleteFlash(true);
+            window.setTimeout(() => setCompleteFlash(false), 620);
+          }
+          return next;
+        });
         setHint('');
       }
     } else {
       playSound('error');
-      setFlash(item.id);
+      setFeedback({ id: item.id, key: Date.now() });
       setHint(`A ${item.label} isn't alive, so the AI would not flag it as a living creature.`);
-      window.setTimeout(() => setFlash(''), 500);
+      window.setTimeout(() => setFeedback(null), 1000);
     }
   }
 
   return (
     <>
       <SectionHeader section="computerVision" note="The AI camera needs to detect every living thing. Tap them." />
-      <div style={cardStyle} className="camera">
-        <div className="scanLine" style={done ? { background: '#5efc82', boxShadow: '0 0 32px #5efc82' } : undefined} />
-        {objects.map((item) => (
-          <button
-            key={item.id}
-            className={`object ${flash === item.id ? 'shake' : ''}`}
-            style={{ left: `${item.x}%`, top: `${item.y}%` }}
-            onClick={() => detect(item)}
-          >
-            {flash === item.id ? '❌' : item.icon}
-            {found.includes(item.id) && <span className="boxLock"><span className="tag">DETECTED: {item.label} 🐾</span></span>}
-          </button>
-        ))}
+      <div style={cardStyle} className={`camera ${done ? 'calibrated' : ''}`}>
+        <div className="scannerHud" aria-live="polite">
+          <div className="kicker">Telemetry HUD</div>
+          <div className="scannerHudValue">Targets Locked: {found.length} / 3</div>
+          <div className="scannerHudBar"><span style={{ width: `${(found.length / 3) * 100}%` }} /></div>
+        </div>
+        <div className="scanLine" />
+        {done && <div className="calibratedText">System Calibrated</div>}
+        {completeFlash && <div className="cameraFlash" />}
+        {objects.map((item) => {
+          const locked = found.includes(item.id);
+          const rejected = feedback?.id === item.id;
+          const objectStyle = {
+            left: `${item.x}%`,
+            top: `${item.y}%`,
+            '--scan-delay': `${-(item.y / 100) * 3}s`,
+            '--drift-x': item.driftX,
+            '--drift-y': item.driftY,
+            '--drift-x-alt': item.driftXAlt,
+            '--drift-y-alt': item.driftYAlt,
+            '--drift-duration': item.driftDuration,
+            '--drift-delay': item.driftDelay,
+          } as CSSProperties & Record<string, string>;
+
+          return (
+            <button
+              key={item.id}
+              className={`object ${locked ? 'locked' : ''} ${rejected ? 'rejecting' : ''}`}
+              style={objectStyle}
+              onClick={() => detect(item)}
+              aria-label={`${item.label} target`}
+            >
+              <span className="objectIcon">{item.icon}</span>
+              {locked && (
+                <>
+                  <span className="lockRipple" />
+                  <span className="focusReticle">
+                    <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
+                  </span>
+                  <span className="tag">{item.tag}</span>
+                </>
+              )}
+              {rejected && (
+                <span key={feedback?.key ?? item.id}>
+                  <span className="rejectReticle">
+                    <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
+                  </span>
+                  <span className="tag rejectTag">{item.tag}</span>
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
       <div style={{ ...cardStyle, marginTop: 18 }}>
         {done ? (
