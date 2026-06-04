@@ -388,6 +388,12 @@ function GlobalStyles() {
         border-color:rgba(75,255,165,.72);
         box-shadow:0 0 0 4px rgba(75,255,165,.1), 0 0 34px rgba(75,255,165,.16);
       }
+      .factory-conveyor.drag-target-hot .factory-drop-prompt {
+        border-color:rgba(75,255,165,.78);
+        color:#d9fff0;
+        background:rgba(75,255,165,.09);
+        animation:dropTargetPulse 1.05s ease-in-out infinite;
+      }
       .factory-drop-prompt {
         display:grid;
         place-items:center;
@@ -453,6 +459,25 @@ function GlobalStyles() {
         animation:catalogDrift 24s linear infinite;
       }
       .testing-catalog:hover .catalog-track { animation-play-state:paused; }
+      .testing-catalog.needs-nudge {
+        position:relative;
+        overflow:visible;
+      }
+      .testing-catalog.needs-nudge::before {
+        content:'';
+        position:absolute;
+        left:34px;
+        top:-20px;
+        width:0;
+        height:0;
+        border-left:11px solid transparent;
+        border-right:11px solid transparent;
+        border-top:16px solid #4bffa5;
+        filter:drop-shadow(0 0 12px rgba(75,255,165,.75));
+        animation:nudgeArrow 1.2s ease-in-out infinite;
+        z-index:2;
+        pointer-events:none;
+      }
       .catalog-thumb {
         width:64px;
         height:64px;
@@ -476,6 +501,11 @@ function GlobalStyles() {
         border-color:rgba(75,255,165,.5);
         background:rgba(75,155,255,.14);
       }
+      .catalog-thumb.first-nudge {
+        border-color:rgba(75,255,165,.72);
+        box-shadow:0 0 0 3px rgba(75,255,165,.12), 0 0 28px rgba(75,255,165,.32);
+        animation:firstThumbPulse 1.2s ease-in-out infinite;
+      }
       .catalog-thumb:active { cursor:grabbing; }
       .catalog-thumb:disabled {
         opacity:.46;
@@ -493,6 +523,41 @@ function GlobalStyles() {
       .factory-test-footer button:disabled {
         opacity:.48;
         cursor:not-allowed;
+      }
+      .training-complete-backdrop {
+        position:fixed;
+        inset:0;
+        z-index:80;
+        display:grid;
+        place-items:center;
+        padding:22px;
+        background:rgba(3,8,18,.76);
+        backdrop-filter:blur(12px);
+        animation:modalFade .22s ease both;
+      }
+      .training-complete-modal {
+        width:min(560px, 100%);
+        border-radius:24px;
+        border:1px solid rgba(75,255,165,.32);
+        background:
+          radial-gradient(circle at 50% 0%, rgba(75,255,165,.16), transparent 34%),
+          linear-gradient(145deg, rgba(16,28,46,.98), rgba(7,16,31,.98));
+        box-shadow:0 28px 90px rgba(0,0,0,.55), 0 0 42px rgba(75,255,165,.16);
+        padding:30px;
+        text-align:center;
+        animation:modalRise .28s cubic-bezier(.16,1,.3,1) both;
+      }
+      .training-complete-modal h3 {
+        margin:0 0 14px;
+        color:#4bffa5;
+        font-size:clamp(2rem, 4vw, 3.1rem);
+        text-shadow:0 0 24px rgba(75,255,165,.45);
+      }
+      .training-complete-modal p {
+        margin:0 auto 24px;
+        max-width:470px;
+        color:#d8eeff;
+        line-height:1.65;
       }
       .shake { animation:shake .42s ease; }
       .celebrate { animation:celebrate .45s ease; }
@@ -519,6 +584,11 @@ function GlobalStyles() {
       @keyframes factoryExpand { from { transform:scale(.22); opacity:.35; } to { transform:scale(1); opacity:1; } }
       @keyframes factoryScan { 0%{top:8%;opacity:.15} 18%{opacity:1} 100%{top:92%;opacity:.2} }
       @keyframes catalogDrift { from { transform:translateX(0); } to { transform:translateX(calc(-33.333% - 8px)); } }
+      @keyframes firstThumbPulse { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-4px) scale(1.05)} }
+      @keyframes nudgeArrow { 0%,100%{transform:translateY(0);opacity:.72} 50%{transform:translateY(8px);opacity:1} }
+      @keyframes dropTargetPulse { 0%,100%{box-shadow:0 0 0 0 rgba(75,255,165,.22), inset 0 0 0 rgba(75,255,165,0)} 50%{box-shadow:0 0 0 10px rgba(75,255,165,0), inset 0 0 28px rgba(75,255,165,.16)} }
+      @keyframes modalFade { from { opacity:0; } to { opacity:1; } }
+      @keyframes modalRise { from { transform:translateY(16px) scale(.97); opacity:.65; } to { transform:translateY(0) scale(1); opacity:1; } }
       @keyframes routeFruit { to { transform:translate(-34vw, 238px) scale(.32); opacity:.08; } }
       @keyframes routeAnimal { to { transform:translate(0, 238px) scale(.32); opacity:.08; } }
       @keyframes routeVehicle { to { transform:translate(34vw, 238px) scale(.32); opacity:.08; } }
@@ -888,10 +958,21 @@ function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) 
   const [processing, setProcessing] = useState(false);
   const [routingBin, setRoutingBin] = useState<FactoryBin | null>(null);
   const [testedCount, setTestedCount] = useState(0);
+  const [showTrainingComplete, setShowTrainingComplete] = useState(false);
+  const [testingStarted, setTestingStarted] = useState(false);
+  const [catalogTouched, setCatalogTouched] = useState(false);
+  const [carouselDragging, setCarouselDragging] = useState(false);
+  const deployButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const done = index >= factoryItems.length;
+  const testingPhase = done && testingStarted;
   const current = factoryItems[index];
   const catalogLoop = [...testingCatalogItems, ...testingCatalogItems, ...testingCatalogItems];
+
+  useEffect(() => {
+    if (!showTrainingComplete) return;
+    deployButtonRef.current?.focus();
+  }, [showTrainingComplete]);
 
   useEffect(() => {
     if (!testingItem) return;
@@ -928,7 +1009,16 @@ function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) 
     if (current.bin === bin) {
       playSound('drop');
       setCounts((prev) => ({ ...prev, [bin]: prev[bin] + 1 }));
-      setIndex((prev) => prev + 1);
+      setIndex((prev) => {
+        const next = prev + 1;
+        if (next >= factoryItems.length) {
+          window.setTimeout(() => {
+            setShowTrainingComplete(true);
+            playSound('success');
+          }, 150);
+        }
+        return next;
+      });
       setHint('');
     } else {
       playSound('error');
@@ -941,7 +1031,8 @@ function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) 
   function handleTestingDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDropActive(false);
-    if (!done || testingItem) return;
+    setCarouselDragging(false);
+    if (!testingPhase || testingItem) return;
     const itemId = event.dataTransfer.getData('application/x-factory-item');
     const item = testingCatalogItems.find((candidate) => candidate.id === itemId);
     if (!item) return;
@@ -951,34 +1042,42 @@ function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) 
   }
 
   function handleDragStart(event: React.DragEvent<HTMLButtonElement>, itemId: string) {
+    setCatalogTouched(true);
+    setCarouselDragging(true);
     event.dataTransfer.setData('application/x-factory-item', itemId);
     event.dataTransfer.effectAllowed = 'copy';
+  }
+
+  function startTestingPhase() {
+    setShowTrainingComplete(false);
+    setTestingStarted(true);
+    setHint('');
   }
 
   return (
     <>
       <SectionHeader
         section="classification"
-        note={done ? 'Drag raw examples into the conveyor and watch the trained AI classify them.' : 'Sort one item at a time and watch the class counts update.'}
+        note={testingPhase ? 'Phase 2: Inference. Drag raw data from the conveyor below into the scanner to test your trained AI.' : 'Sort one item at a time and watch the class counts update.'}
       />
       <div
-        className={`conveyor factory-conveyor ${done ? 'testing-mode' : ''} ${dropActive ? 'drop-ready' : ''}`}
+        className={`conveyor factory-conveyor ${testingPhase ? 'testing-mode' : ''} ${dropActive ? 'drop-ready' : ''} ${carouselDragging && testingPhase && !testingItem ? 'drag-target-hot' : ''}`}
         onDragOver={(event) => {
-          if (!done || testingItem) return;
+          if (!testingPhase || testingItem) return;
           event.preventDefault();
           event.dataTransfer.dropEffect = 'copy';
         }}
-        onDragEnter={() => done && !testingItem && setDropActive(true)}
+        onDragEnter={() => testingPhase && !testingItem && setDropActive(true)}
         onDragLeave={() => setDropActive(false)}
         onDrop={handleTestingDrop}
       >
-        {!done ? (
+        {!done && current ? (
           <div style={cardStyle} className="itemCard">
             <span className="emoji">{current.icon}</span>
             <h3>{current.name}</h3>
             <p className="small">{current.desc}</p>
           </div>
-        ) : testingItem ? (
+        ) : testingPhase && testingItem ? (
           <div
             style={cardStyle}
             className={`itemCard testing-giant-card ${processing ? 'processing' : ''} ${routingBin ? `route-${routingBin}` : ''}`}
@@ -987,9 +1086,13 @@ function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) 
             <span className="emoji testing-card-icon">{testingItem.icon}</span>
             {processing && <span className="factory-scanline" aria-hidden="true" />}
           </div>
-        ) : (
+        ) : testingPhase ? (
           <div className="factory-drop-prompt">
             <span>Drop raw data here</span>
+          </div>
+        ) : (
+          <div className="factory-drop-prompt">
+            <span>Model ready</span>
           </div>
         )}
       </div>
@@ -1008,16 +1111,25 @@ function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) 
           </button>
         ))}
       </div>
-      {done ? (
+      {testingPhase ? (
         <>
-          <div style={{ ...cardStyle, marginTop: 18 }} className="testing-catalog" aria-label="Raw testing image catalog">
+          <div
+            style={{ ...cardStyle, marginTop: 18 }}
+            className={`testing-catalog ${!catalogTouched ? 'needs-nudge' : ''}`}
+            aria-label="Raw testing image catalog"
+          >
             <div className="catalog-track">
               {catalogLoop.map((item, loopIndex) => (
                 <button
                   key={`${item.id}-${loopIndex}`}
-                  className="catalog-thumb"
+                  className={`catalog-thumb ${!catalogTouched && loopIndex === 0 ? 'first-nudge' : ''}`}
                   draggable={!testingItem}
+                  onPointerDown={() => setCatalogTouched(true)}
                   onDragStart={(event) => handleDragStart(event, item.id)}
+                  onDragEnd={() => {
+                    setCarouselDragging(false);
+                    setDropActive(false);
+                  }}
                   disabled={!!testingItem}
                   aria-label={`Drag unlabeled ${item.name} image to conveyor`}
                 >
@@ -1036,6 +1148,25 @@ function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) 
       ) : (
         <div style={{ ...cardStyle, marginTop: 18 }}>
           <p className="hint">{hint}</p>
+        </div>
+      )}
+      {showTrainingComplete && (
+        <div className="training-complete-backdrop" role="presentation">
+          <div
+            className="training-complete-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="training-complete-title"
+            aria-describedby="training-complete-desc"
+          >
+            <h3 id="training-complete-title">Training Complete!</h3>
+            <p id="training-complete-desc">
+              Excellent work. The AI has analyzed your examples and built its classification model. Now, let's deploy it. Your next mission is to test the AI with raw, unlabeled data to see what it learned.
+            </p>
+            <button ref={deployButtonRef} style={primaryBtn} onClick={startTestingPhase}>
+              Deploy AI
+            </button>
+          </div>
         </div>
       )}
     </>
