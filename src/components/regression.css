@@ -155,12 +155,30 @@
   stroke: #ffffff;
   stroke-width: 1.4;
   filter: drop-shadow(0 0 11px rgba(108, 240, 255, 0.4));
+  transform-origin: center;
+  animation: pointPlace 260ms ease-out;
 }
 
 .residual-line {
   stroke: rgba(255, 255, 255, 0.25);
   stroke-width: 1.3;
   stroke-dasharray: 4 4;
+}
+
+.prediction-point {
+  fill: #edffbd;
+  stroke: #ffffff;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 18px rgba(237, 255, 189, 0.7));
+  animation: predictionScale 1200ms ease-in-out infinite;
+}
+
+.prediction-point-pulse {
+  fill: rgba(237, 255, 189, 0.16);
+  stroke: rgba(237, 255, 189, 0.86);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 20px rgba(237, 255, 189, 0.48));
+  animation: predictionPulse 1200ms ease-in-out infinite;
 }
 
 .graph-caption {
@@ -418,4 +436,21 @@
 
 @keyframes drawCheck {
   to { stroke-dashoffset: 0; }
+}
+
+@keyframes pointPlace {
+  0% { r: 2; opacity: 0.35; }
+  65% { r: 10; opacity: 1; }
+  100% { r: 7; opacity: 1; }
+}
+
+@keyframes predictionPulse {
+  0% { r: 10; opacity: 0.45; }
+  50% { r: 18; opacity: 0.95; }
+  100% { r: 10; opacity: 0.45; }
+}
+
+@keyframes predictionScale {
+  0%, 100% { r: 7; }
+  50% { r: 9; }
 }

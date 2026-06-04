@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface RegressionPoint {
   id: string;
@@ -6,32 +6,22 @@ export interface RegressionPoint {
   y: number;
 }
 
-export type RegressionStatus = 'AWAITING DATA' | 'TRAINING' | 'PAUSED' | 'MODEL OPTIMIZED';
+export type RegressionStatus = 'AWAITING EXAMPLES' | 'LEARNING' | 'TRAINING COMPLETE';
 
+const MAX_TRAINING_POINTS = 6;
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const randomBetween = (min: number, max: number) => Math.random() * (max - min) + min;
 const createId = () => `p-${Math.random().toString(36).slice(2, 9)}`;
 
-const buildSampleData = (): RegressionPoint[] => {
-  const baseSlope = -0.6;
-  const baseIntercept = 10.4;
-  return [1, 2, 3, 4, 5, 6, 7, 8].map((x) => {
-    const noise = randomBetween(-0.5, 0.5);
-    const y = clamp(baseIntercept + baseSlope * x + noise, 0.6, 12);
-    return { id: createId(), x, y: Math.round(y * 100) / 100 };
-  });
-};
-
-export function useGradientDescent(initialRate = 0.01) {
+export function useGradientDescent(initialRate = 0.001) {
   const [points, setPoints] = useState<RegressionPoint[]>([]);
-  const [m, setM] = useState<number>(() => randomBetween(-1, 1));
-  const [b, setB] = useState<number>(() => randomBetween(-1, 1));
+  const [m, setM] = useState<number>(() => randomBetween(1, 8));
+  const [b, setB] = useState<number>(() => randomBetween(20, 60));
   const [loss, setLoss] = useState<number>(0);
   const [iteration, setIteration] = useState<number>(0);
-  const [learningRate, setLearningRate] = useState<number>(() => clamp(initialRate, 0.0001, 0.05));
-  const [status, setStatus] = useState<RegressionStatus>('AWAITING DATA');
+  const [learningRate, setLearningRate] = useState<number>(() => clamp(initialRate, 0.00001, 0.005));
+  const [status, setStatus] = useState<RegressionStatus>('AWAITING EXAMPLES');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [predictionX, setPredictionX] = useState<number>(5);
 
   const pointsRef = useRef<RegressionPoint[]>(points);
   const mRef = useRef<number>(m);
@@ -39,21 +29,12 @@ export function useGradientDescent(initialRate = 0.01) {
   const lossRef = useRef<number>(Infinity);
   const iterationRef = useRef<number>(iteration);
   const learningRateRef = useRef<number>(learningRate);
-  const runningRef = useRef<boolean>(true);
+  const runningRef = useRef<boolean>(false);
   const statusRef = useRef<RegressionStatus>(status);
-  const stableCountRef = useRef<number>(0);
   const lossIncreaseCountRef = useRef<number>(0);
-  const lastValidRef = useRef<{ m: number; b: number }>({ m: mRefValue(m), b: bRefValue(b) });
-  const maxUpdatesPerFrame = 3; // between 1 and 5 as spec
+  const lastValidRef = useRef<{ m: number; b: number }>({ m, b });
   const rafRef = useRef<number | null>(null);
-
-  function mRefValue(val?: number) {
-    return typeof val === 'number' ? val : 0;
-  }
-
-  function bRefValue(val?: number) {
-    return typeof val === 'number' ? val : 0;
-  }
+  const maxUpdatesPerFrame = 2;
 
   useEffect(() => {
     pointsRef.current = points;
@@ -87,69 +68,63 @@ export function useGradientDescent(initialRate = 0.01) {
   }, []);
 
   const addPoint = useCallback((point: Omit<RegressionPoint, 'id'>) => {
-    setPoints((prev) => [...prev, { ...point, id: createId() }]);
-    stableCountRef.current = 0;
-    updateStatus('TRAINING');
-  }, [updateStatus]);
+    if (pointsRef.current.length >= MAX_TRAINING_POINTS) return;
 
-  const generateSampleData = useCallback(() => {
-    // Use the provided dataset example with small random noise around each point
-    const base = [
-      { x: 2, y: 9 },
-      { x: 4, y: 8 },
-      { x: 6, y: 7 },
-    ];
-    const noisy = base.map((p) => ({ id: createId(), x: Math.max(0, Math.min(12, p.x + randomBetween(-0.2, 0.2))), y: Math.max(0, Math.min(12, p.y + randomBetween(-0.3, 0.3))) }));
-    setPoints(noisy);
-    stableCountRef.current = 0;
+    const graphPoint = {
+      id: createId(),
+      x: Math.round(clamp(point.x, 0, 12) * 100) / 100,
+      y: Math.round(clamp(point.y, 0, 100) * 100) / 100,
+    };
+
+    setPoints((prev) => [...prev, graphPoint].slice(0, MAX_TRAINING_POINTS));
     lossRef.current = Infinity;
-    iterationRef.current = 0;
-    updateStatus('TRAINING');
+    lossIncreaseCountRef.current = 0;
+    runningRef.current = true;
+    updateStatus('LEARNING');
     setErrorMessage(null);
   }, [updateStatus]);
 
   const clearData = useCallback(() => {
+    const nextM = randomBetween(1, 8);
+    const nextB = randomBetween(20, 60);
+
     setPoints([]);
-    const nextM = randomBetween(-1.5, 1.5);
-    const nextB = randomBetween(2, 9);
     mRef.current = nextM;
     bRef.current = nextB;
     lossRef.current = Infinity;
     iterationRef.current = 0;
-    stableCountRef.current = 0;
+    runningRef.current = false;
+    lossIncreaseCountRef.current = 0;
+    lastValidRef.current = { m: nextM, b: nextB };
     setM(nextM);
     setB(nextB);
     setLoss(0);
     setIteration(0);
-    setPredictionX(5);
-    updateStatus('AWAITING DATA');
+    updateStatus('AWAITING EXAMPLES');
     setErrorMessage(null);
   }, [updateStatus]);
 
   const clearError = useCallback(() => setErrorMessage(null), []);
 
-  const pauseTraining = useCallback(() => {
-    runningRef.current = false;
-    updateStatus('PAUSED');
-  }, [updateStatus]);
-
-  const resumeTraining = useCallback(() => {
-    runningRef.current = true;
-    updateStatus(pointsRef.current.length ? 'TRAINING' : 'AWAITING DATA');
-  }, [updateStatus]);
+  const predict = useCallback((studyHours: number) => {
+    const x = clamp(studyHours, 0, 12);
+    return {
+      x,
+      y: clamp(mRef.current * x + bRef.current, 0, 100),
+    };
+  }, []);
 
   useEffect(() => {
     const tick = () => {
       const pts = pointsRef.current;
 
       if (pts.length === 0) {
-        updateStatus('AWAITING DATA');
+        updateStatus('AWAITING EXAMPLES');
         rafRef.current = window.requestAnimationFrame(tick);
         return;
       }
 
       if (!runningRef.current) {
-        // keep the loop alive but idle
         rafRef.current = window.requestAnimationFrame(tick);
         return;
       }
@@ -162,17 +137,14 @@ export function useGradientDescent(initialRate = 0.01) {
         const currentB = bRef.current;
         const lr = learningRateRef.current;
 
-        // safety: ensure finite
-        if (!Number.isFinite(currentM) || !Number.isFinite(currentB) || Number.isNaN(currentM) || Number.isNaN(currentB)) {
-          // revert to last valid and stop
+        if (!Number.isFinite(currentM) || !Number.isFinite(currentB)) {
           const last = lastValidRef.current;
           mRef.current = last.m;
           bRef.current = last.b;
           setM(last.m);
           setB(last.b);
-          updateStatus('AWAITING DATA');
-          setErrorMessage('Numeric instability detected — model reverted to last valid parameters.');
-          console.error('Invalid parameter encountered. Reverting to last valid model.');
+          updateStatus('AWAITING EXAMPLES');
+          setErrorMessage('The AI had trouble learning from those examples. Try placing the points again.');
           runningRef.current = false;
           break;
         }
@@ -191,29 +163,23 @@ export function useGradientDescent(initialRate = 0.01) {
 
         const n = pts.length;
         const mse = sumError / n;
-        const mGradient = (2 / n) * gradM;
-        const bGradient = (2 / n) * gradB;
+        const nextM = currentM - lr * ((2 / n) * gradM);
+        const nextB = currentB - lr * ((2 / n) * gradB);
 
-        const nextM = currentM - lr * mGradient;
-        const nextB = currentB - lr * bGradient;
-
-        // check for NaN/Infinity
         if (!Number.isFinite(nextM) || !Number.isFinite(nextB)) {
           const last = lastValidRef.current;
           mRef.current = last.m;
           bRef.current = last.b;
           setM(last.m);
           setB(last.b);
-          updateStatus('AWAITING DATA');
-          setErrorMessage('Non-finite parameter update detected; reverted to last valid model.');
+          updateStatus('AWAITING EXAMPLES');
+          setErrorMessage('The AI had trouble learning from those examples. Try placing the points again.');
           runningRef.current = false;
-          console.error('Non-finite update detected; reverting to last valid model.');
           break;
         }
 
         const improvement = Math.abs(lossRef.current - mse);
 
-        // detect loss increase
         if (mse > lossRef.current) {
           lossIncreaseCountRef.current += 1;
         } else {
@@ -221,35 +187,29 @@ export function useGradientDescent(initialRate = 0.01) {
         }
 
         if (lossIncreaseCountRef.current >= 20) {
-          // reduce learning rate to stabilize
-          const halved = clamp(learningRateRef.current * 0.5, 0.0001, 0.05);
+          const halved = clamp(learningRateRef.current * 0.5, 0.00001, 0.005);
           learningRateRef.current = halved;
           setLearningRate(halved);
           lossIncreaseCountRef.current = 0;
         }
 
-        // apply update
         mRef.current = nextM;
         bRef.current = nextB;
         lossRef.current = mse;
         iterationRef.current += 1;
+        lastValidRef.current = { m: nextM, b: nextB };
 
         setM(nextM);
         setB(nextB);
         setLoss(mse);
         setIteration(iterationRef.current);
 
-        // store last valid
-        lastValidRef.current = { m: nextM, b: nextB };
-
-        // convergence check
-        if (improvement < 0.0001) {
-          updateStatus('MODEL OPTIMIZED');
+        if (improvement < 0.00001) {
           runningRef.current = false;
+          updateStatus(pts.length >= MAX_TRAINING_POINTS ? 'TRAINING COMPLETE' : 'LEARNING');
           converged = true;
-          break;
         } else {
-          updateStatus('TRAINING');
+          updateStatus('LEARNING');
         }
 
         updates += 1;
@@ -266,15 +226,10 @@ export function useGradientDescent(initialRate = 0.01) {
     };
   }, [updateStatus]);
 
-  const predictedY = useMemo(() => m * predictionX + b, [m, b, predictionX]);
-
   return {
     points,
     addPoint,
-    generateSampleData,
     clearData,
-    pauseTraining,
-    resumeTraining,
     learningRate,
     setLearningRate,
     status,
@@ -282,10 +237,9 @@ export function useGradientDescent(initialRate = 0.01) {
     iteration,
     m,
     b,
-    predictionX,
-    setPredictionX,
-    predictedY,
+    predict,
     errorMessage,
     clearError,
+    maxTrainingPoints: MAX_TRAINING_POINTS,
   };
 }

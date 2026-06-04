@@ -6,33 +6,38 @@ interface RegressionGraphProps {
   m: number;
   b: number;
   onAddPoint: (point: { x: number; y: number }) => void;
+  canAddPoints: boolean;
+  predictionPoint?: { x: number; y: number } | null;
 }
 
 const VIEW_WIDTH = 560;
 const VIEW_HEIGHT = 520;
 const MARGIN = 48;
-const GRID_MAX = 12;
+const X_MAX = 12;
+const Y_MAX = 100;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-const xToSvg = (x: number) => MARGIN + (x / GRID_MAX) * (VIEW_WIDTH - MARGIN * 2);
-const yToSvg = (y: number) => MARGIN + ((GRID_MAX - y) / GRID_MAX) * (VIEW_HEIGHT - MARGIN * 2);
+const xToSvg = (x: number) => MARGIN + (clamp(x, 0, X_MAX) / X_MAX) * (VIEW_WIDTH - MARGIN * 2);
+const yToSvg = (y: number) => MARGIN + ((Y_MAX - clamp(y, 0, Y_MAX)) / Y_MAX) * (VIEW_HEIGHT - MARGIN * 2);
 
-export function RegressionGraph({ points, m, b, onAddPoint }: RegressionGraphProps) {
+export function RegressionGraph({ points, m, b, onAddPoint, canAddPoints, predictionPoint }: RegressionGraphProps) {
   const handleClick = (event: MouseEvent<SVGSVGElement>) => {
+    if (!canAddPoints) return;
+
     const rect = event.currentTarget.getBoundingClientRect();
     const svgX = ((event.clientX - rect.left) / rect.width) * VIEW_WIDTH;
     const svgY = ((event.clientY - rect.top) / rect.height) * VIEW_HEIGHT;
 
     if (svgX < MARGIN || svgX > VIEW_WIDTH - MARGIN || svgY < MARGIN || svgY > VIEW_HEIGHT - MARGIN) return;
 
-    const x = clamp(((svgX - MARGIN) / (VIEW_WIDTH - MARGIN * 2)) * GRID_MAX, 0, GRID_MAX);
-    const y = clamp(GRID_MAX - ((svgY - MARGIN) / (VIEW_HEIGHT - MARGIN * 2)) * GRID_MAX, 0, GRID_MAX);
+    const x = clamp(((svgX - MARGIN) / (VIEW_WIDTH - MARGIN * 2)) * X_MAX, 0, X_MAX);
+    const y = clamp(Y_MAX - ((svgY - MARGIN) / (VIEW_HEIGHT - MARGIN * 2)) * Y_MAX, 0, Y_MAX);
     onAddPoint({ x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 });
   };
 
   const linePointA = { x: 0, y: m * 0 + b };
-  const linePointB = { x: GRID_MAX, y: m * GRID_MAX + b };
+  const linePointB = { x: X_MAX, y: m * X_MAX + b };
 
   return (
     <div className="regression-graph-shell">
@@ -49,7 +54,7 @@ export function RegressionGraph({ points, m, b, onAddPoint }: RegressionGraphPro
         </defs>
         <rect x="0" y="0" width="100%" height="100%" fill="url(#gridGradient)" />
 
-        {[...Array(GRID_MAX + 1).keys()].map((tick) => (
+        {[...Array(X_MAX + 1).keys()].map((tick) => (
           <line
             key={`v-${tick}`}
             x1={xToSvg(tick)}
@@ -59,7 +64,7 @@ export function RegressionGraph({ points, m, b, onAddPoint }: RegressionGraphPro
             className="graph-grid-line"
           />
         ))}
-        {[...Array(GRID_MAX + 1).keys()].map((tick) => (
+        {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((tick) => (
           <line
             key={`h-${tick}`}
             x1={MARGIN}
@@ -73,7 +78,7 @@ export function RegressionGraph({ points, m, b, onAddPoint }: RegressionGraphPro
         <line
           x1={xToSvg(0)}
           y1={yToSvg(0)}
-          x2={xToSvg(GRID_MAX)}
+          x2={xToSvg(X_MAX)}
           y2={yToSvg(0)}
           className="graph-axis"
         />
@@ -81,7 +86,7 @@ export function RegressionGraph({ points, m, b, onAddPoint }: RegressionGraphPro
           x1={xToSvg(0)}
           y1={yToSvg(0)}
           x2={xToSvg(0)}
-          y2={yToSvg(GRID_MAX)}
+          y2={yToSvg(Y_MAX)}
           className="graph-axis"
         />
 
@@ -92,7 +97,7 @@ export function RegressionGraph({ points, m, b, onAddPoint }: RegressionGraphPro
             </text>
           </g>
         ))}
-        {[0, 3, 6, 9, 12].map((tick) => (
+        {[0, 25, 50, 75, 100].map((tick) => (
           <g key={`y-label-${tick}`}>
             <text x={16} y={yToSvg(tick) + 4} className="graph-label" textAnchor="start">
               {tick}
@@ -101,10 +106,10 @@ export function RegressionGraph({ points, m, b, onAddPoint }: RegressionGraphPro
         ))}
 
         <text x={VIEW_WIDTH / 2} y={VIEW_HEIGHT - 8} className="graph-axis-label" textAnchor="middle">
-          Study Hours Per Day
+          Study Hours
         </text>
         <text x={18} y={VIEW_HEIGHT / 2} className="graph-axis-label" transform={`rotate(-90 18 ${VIEW_HEIGHT / 2})`}>
-          Sleep Hours Per Night
+          Marks
         </text>
 
         <line
@@ -135,8 +140,27 @@ export function RegressionGraph({ points, m, b, onAddPoint }: RegressionGraphPro
             </g>
           );
         })}
+
+        {predictionPoint && (
+          <g className="prediction-point-group">
+            <circle
+              cx={xToSvg(predictionPoint.x)}
+              cy={yToSvg(predictionPoint.y)}
+              r="15"
+              className="prediction-point-pulse"
+            />
+            <circle
+              cx={xToSvg(predictionPoint.x)}
+              cy={yToSvg(predictionPoint.y)}
+              r="8"
+              className="prediction-point"
+            />
+          </g>
+        )}
       </svg>
-      <div className="graph-caption">Click anywhere in the grid to add a new observation.</div>
+      <div className="graph-caption">
+        {canAddPoints ? 'Click anywhere inside the graph to create a training example.' : 'The learned line stays visible for testing.'}
+      </div>
     </div>
   );
 }

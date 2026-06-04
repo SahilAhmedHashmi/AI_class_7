@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { playSound } from '../utils/sound';
 import { useGradientDescent } from './useGradientDescent';
 import { RegressionGraph } from './RegressionGraph';
-import { ControlPanel } from './ControlPanel';
 import { PredictionPanel } from './PredictionPanel';
 import './regression.css';
 
@@ -14,32 +13,49 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
   const {
     points,
     addPoint,
-    generateSampleData,
     clearData,
-    pauseTraining,
-    resumeTraining,
-    learningRate,
-    setLearningRate,
     status,
-    loss,
-    iteration,
     m,
     b,
-    predictionX,
-    setPredictionX,
-    predictedY,
+    predict,
     errorMessage,
     clearError,
+    maxTrainingPoints,
   } = useGradientDescent();
 
+  const [phase, setPhase] = useState<'training' | 'testing'>('training');
+  const [studyHours, setStudyHours] = useState<number>(6);
+  const [predictionPoint, setPredictionPoint] = useState<{ x: number; y: number } | null>(null);
   const previousStatus = useRef(status);
 
   useEffect(() => {
-    if (status === 'MODEL OPTIMIZED' && previousStatus.current !== 'MODEL OPTIMIZED') {
+    if (status === 'TRAINING COMPLETE' && previousStatus.current !== 'TRAINING COMPLETE') {
       playSound('success');
+      const transition = window.setTimeout(() => {
+        setPhase('testing');
+        setPredictionPoint(null);
+      }, 1400);
+
+      previousStatus.current = status;
+      return () => window.clearTimeout(transition);
     }
+
     previousStatus.current = status;
   }, [status]);
+
+  const handleResetTraining = () => {
+    clearData();
+    setPhase('training');
+    setPredictionPoint(null);
+    setStudyHours(6);
+  };
+
+  const handlePredict = () => {
+    const result = predict(studyHours);
+    setStudyHours(result.x);
+    setPredictionPoint(result);
+    playSound('click');
+  };
 
   return (
     <div className="regression-shell">
@@ -47,48 +63,67 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
         <div>
           <div className="terminal-title">NEURAL PREDICTION TERMINAL</div>
           <div className="terminal-subtitle">
-            Train an AI to discover the relationship between Study Time and Sleep Time.
+            {phase === 'training'
+              ? 'An AI is learning how Study Hours affect Marks.'
+              : 'The AI has learned from the examples.'}
           </div>
         </div>
-        <div className={`status-pill ${status === 'MODEL OPTIMIZED' ? 'optimized' : status === 'TRAINING' ? 'training' : status === 'PAUSED' ? 'paused' : 'waiting'}`}>
+        <div className={`status-pill ${status === 'TRAINING COMPLETE' ? 'optimized' : status === 'LEARNING' ? 'training' : 'waiting'}`}>
           <span className="status-key">Model Status</span>
           <strong>{status}</strong>
         </div>
       </div>
 
-        {errorMessage && (
-          <div className="error-banner">
-            <div className="error-text">{errorMessage}</div>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => {
-                clearError();
-                playSound('error');
-              }}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
+      {errorMessage && (
+        <div className="error-banner">
+          <div className="error-text">{errorMessage}</div>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => {
+              clearError();
+              playSound('error');
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
-      <div className="stat-grid">
-        <div className="stat-card">
-          <div className="stat-label">Loss</div>
-          <div className="stat-value">{points.length ? loss.toFixed(2) : '---'}</div>
+      {phase === 'training' ? (
+        <div className="stat-grid">
+          <div className="stat-card">
+            <div className="stat-label">Training Examples</div>
+            <div className="stat-value">{points.length} / {maxTrainingPoints}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Learning Flow</div>
+            <div className="stat-value">Automatic</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Goal</div>
+            <div className="stat-value">{points.length < maxTrainingPoints ? 'Add Points' : 'Finishing'}</div>
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Iterations</div>
-          <div className="stat-value">{iteration}</div>
+      ) : (
+        <div className="stat-grid">
+          <div className="stat-card">
+            <div className="stat-label">Testing Phase</div>
+            <div className="stat-value">Ready</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Input</div>
+            <div className="stat-value">0-12</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Output</div>
+            <div className="stat-value">Marks</div>
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Observations</div>
-          <div className="stat-value">{points.length}</div>
-        </div>
-      </div>
+      )}
 
       <div className="regression-main-grid">
-        <div className={`optimized-overlay ${status === 'MODEL OPTIMIZED' ? 'active' : ''}`} aria-hidden>
+        <div className={`optimized-overlay ${status === 'TRAINING COMPLETE' && phase === 'training' ? 'active' : ''}`} aria-hidden>
           <div className="optimized-check">
             <svg viewBox="0 0 64 64" width="72" height="72" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="32" cy="32" r="30" stroke="rgba(255,255,255,0.12)" strokeWidth="2" />
@@ -96,34 +131,64 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
             </svg>
           </div>
         </div>
-        <RegressionGraph points={points} m={m} b={b} onAddPoint={(point) => { addPoint(point); playSound('click'); }} />
+
+        <RegressionGraph
+          points={phase === 'training' ? points : []}
+          m={m}
+          b={b}
+          canAddPoints={phase === 'training' && points.length < maxTrainingPoints}
+          predictionPoint={phase === 'testing' ? predictionPoint : null}
+          onAddPoint={(point) => {
+            addPoint(point);
+            playSound('click');
+          }}
+        />
 
         <div className="regression-side-panel">
-          <ControlPanel
-            onGenerate={() => { generateSampleData(); playSound('drop'); }}
-            onClear={() => clearData()}
-            onPause={() => { pauseTraining(); playSound('boss'); }}
-            onResume={() => { resumeTraining(); playSound('power'); }}
-            learningRate={learningRate}
-            onLearningRateChange={(value) => setLearningRate(value)}
-            isRunning={status === 'TRAINING'}
-          />
-
-          <PredictionPanel
-            predictionX={predictionX}
-            predictedY={predictedY}
-            onPredictionXChange={(value) => setPredictionX(value)}
-            hasPoints={points.length > 0}
-          />
-
-          <div className="formula-card">
-            <div className="formula-label">Model Equation</div>
-            <div className="formula-value">Sleep = {m.toFixed(2)} × Study + {b.toFixed(2)}</div>
-          </div>
-
-          <button className="complete-button" type="button" disabled={status !== 'MODEL OPTIMIZED'} onClick={onComplete}>
-            Power Next District
-          </button>
+          {phase === 'training' ? (
+            <>
+              <div className="control-panel">
+                <div className="prediction-header">
+                  <div className="prediction-title">TRAINING PHASE</div>
+                  <div className="prediction-subtitle">Help train the AI by creating 6 examples.</div>
+                </div>
+                <div className="prediction-note">Click anywhere inside the graph to create a training example.</div>
+                <div className="prediction-result">
+                  <div className="prediction-label">Training Examples</div>
+                  <div className="prediction-value">{points.length} / {maxTrainingPoints}</div>
+                </div>
+              </div>
+              <div className="formula-card">
+                <div className="formula-label">{status === 'TRAINING COMPLETE' ? 'Training Complete' : 'Learning'}</div>
+                <div className="formula-value">
+                  {status === 'TRAINING COMPLETE'
+                    ? 'The AI has learned from the examples.'
+                    : 'The line updates after every example.'}
+                </div>
+              </div>
+              <button className="ghost-button" type="button" onClick={handleResetTraining}>
+                Start Over
+              </button>
+            </>
+          ) : (
+            <>
+              <PredictionPanel
+                studyHours={studyHours}
+                predictedMarks={predictionPoint?.y ?? null}
+                onStudyHoursChange={(value) => {
+                  setStudyHours(Number.isFinite(value) ? Math.min(Math.max(value, 0), 12) : 0);
+                  setPredictionPoint(null);
+                }}
+                onPredict={handlePredict}
+              />
+              <button className="ghost-button" type="button" onClick={handleResetTraining}>
+                Train Again
+              </button>
+              <button className="complete-button" type="button" disabled={predictionPoint === null} onClick={onComplete}>
+                Power Next District
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
