@@ -11,8 +11,8 @@ interface RegressionGraphProps {
 }
 
 const VIEW_WIDTH = 560;
-const VIEW_HEIGHT = 520;
-const MARGIN = 48;
+const VIEW_HEIGHT = 430;
+const MARGIN = 40;
 const X_MAX = 12;
 const Y_MAX = 100;
 
@@ -158,9 +158,6 @@ export function RegressionGraph({ points, m, b, onAddPoint, canAddPoints, predic
           </g>
         )}
       </svg>
-      <div className="graph-caption">
-        {canAddPoints ? 'Click anywhere inside the graph to create a training example.' : 'The learned line stays visible for testing.'}
-      </div>
     </div>
   );
 }

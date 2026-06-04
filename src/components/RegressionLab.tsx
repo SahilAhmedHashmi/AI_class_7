@@ -29,14 +29,18 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
   const previousStatus = useRef(status);
   const isTrainingActive = phase === 'training' && status === 'LEARNING' && points.length >= maxTrainingPoints;
   const isTrainingFinishing = phase === 'training' && status === 'TRAINING COMPLETE';
+  const remainingExamples = Math.max(maxTrainingPoints - points.length, 0);
+  const trainingProgress = (points.length / maxTrainingPoints) * 100;
   const friendlyStatus =
     phase === 'testing'
-      ? 'Ready to make predictions'
+      ? 'Enter study hours, click Predict Marks, and see what the AI predicts.'
       : status === 'TRAINING COMPLETE'
-        ? 'Ready for testing'
+        ? 'Training complete. Testing opens next.'
         : points.length >= maxTrainingPoints
-          ? 'AI is learning...'
-          : `Add ${maxTrainingPoints - points.length} more examples to teach the AI`;
+          ? 'AI is learning from your examples...'
+          : points.length === 0
+            ? 'Add 6 examples to teach the AI.'
+            : `${points.length} of ${maxTrainingPoints} examples added.`;
 
   useEffect(() => {
     if (status === 'TRAINING COMPLETE' && previousStatus.current !== 'TRAINING COMPLETE') {
@@ -70,18 +74,21 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
   return (
     <div className="regression-shell">
       <div className="terminal-panel">
-        <div>
-          <div className="terminal-title">NEURAL PREDICTION TERMINAL</div>
-          <div className="terminal-subtitle">
-            {phase === 'training'
-              ? 'An AI is learning how Study Hours affect Marks.'
-              : 'The AI has learned from the examples.'}
+        <div className="terminal-copy">
+          <div className="terminal-title">{phase === 'training' ? 'TRAINING' : 'TESTING'}</div>
+          <div className="terminal-subtitle">{friendlyStatus}</div>
+        </div>
+        {phase === 'training' && (
+          <div className={`training-progress ${isTrainingActive || isTrainingFinishing ? 'training' : ''}`} aria-label={`${points.length} of ${maxTrainingPoints} examples added`}>
+            <div className="training-progress-top">
+              <span>Training Progress</span>
+              <strong>{points.length}/{maxTrainingPoints}</strong>
+            </div>
+            <div className="training-progress-track">
+              <div className="training-progress-fill" style={{ width: `${trainingProgress}%` }} />
+            </div>
           </div>
-        </div>
-        <div className={`status-pill ${status === 'TRAINING COMPLETE' ? 'optimized' : status === 'LEARNING' ? 'training' : 'waiting'}`}>
-          <span className="status-key">Next Step</span>
-          <strong>{friendlyStatus}</strong>
-        </div>
+        )}
       </div>
 
       {errorMessage && (
@@ -97,34 +104,6 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
           >
             Dismiss
           </button>
-        </div>
-      )}
-
-      {phase === 'training' ? (
-        <div className="stat-grid training-stats">
-          <div className="stat-card">
-            <div className="stat-label">Training Examples</div>
-            <div className="stat-value">{points.length} / {maxTrainingPoints}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Goal</div>
-            <div className="stat-value">{points.length < maxTrainingPoints ? 'Add Examples' : 'Training'}</div>
-          </div>
-        </div>
-      ) : (
-        <div className="stat-grid">
-          <div className="stat-card">
-            <div className="stat-label">Testing Phase</div>
-            <div className="stat-value">Ready</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Input</div>
-            <div className="stat-value">0-12</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Output</div>
-            <div className="stat-value">Marks</div>
-          </div>
         </div>
       )}
 
@@ -167,23 +146,13 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
         <div className="regression-side-panel">
           {phase === 'training' ? (
             <>
-              <div className="control-panel">
-                <div className="prediction-header">
-                  <div className="prediction-title">TRAINING PHASE</div>
-                  <div className="prediction-subtitle">Help train the AI by creating 6 examples.</div>
-                </div>
-                <div className="prediction-note">Click anywhere inside the graph to create a training example.</div>
-                <div className="prediction-result">
-                  <div className="prediction-label">Training Examples</div>
-                  <div className="prediction-value">{points.length} / {maxTrainingPoints}</div>
-                </div>
-              </div>
-              <div className="formula-card">
-                <div className="formula-label">{status === 'TRAINING COMPLETE' ? 'Training Complete' : 'Learning'}</div>
-                <div className="formula-value">
-                  {status === 'TRAINING COMPLETE'
-                    ? 'The AI has learned from the examples.'
-                    : 'The line updates after every example.'}
+              <div className="control-panel training-summary">
+                <div className="prediction-title">Examples</div>
+                <div className="training-count">{points.length} / {maxTrainingPoints}</div>
+                <div className="training-summary-text">
+                  {points.length < maxTrainingPoints
+                    ? `Add ${remainingExamples} more ${remainingExamples === 1 ? 'example' : 'examples'}.`
+                    : 'Finding patterns in the data...'}
                 </div>
               </div>
               <button className="ghost-button" type="button" onClick={handleResetTraining}>
@@ -196,7 +165,9 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
                 studyHours={studyHours}
                 predictedMarks={predictionPoint?.y ?? null}
                 onStudyHoursChange={(value) => {
-                  setStudyHours(Number.isFinite(value) ? Math.min(Math.max(value, 0), 12) : 0);
+                  if (Number.isFinite(value)) {
+                    setStudyHours(Math.min(Math.max(value, 0), 12));
+                  }
                   setPredictionPoint(null);
                 }}
                 onPredict={handlePredict}

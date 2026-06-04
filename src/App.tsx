@@ -72,7 +72,7 @@ const sectionDetails: Partial<Record<SectionKey, { title: string; text: string }
   },
   regression: {
     title: 'What is regression?',
-    text: 'Regression is a way for AI to predict a number based on other data. For example, it can estimate test scores from study hours and sleep. In this activity, you will move the sliders and see how the prediction changes.',
+    text: 'Regression is a way for AI to predict a number based on other data. For example, it can estimate test scores from study hours. In this activity, you will add examples, then use the learned line to make a prediction.',
   },
   clustering: {
     title: 'What is clustering?',
@@ -115,6 +115,20 @@ const factoryItems = [
   { icon: '🐈', name: 'Cat', desc: 'Whiskers, paws, meows.', bin: 'Animal' },
   { icon: '🚕', name: 'Taxi', desc: 'A paid road vehicle.', bin: 'Vehicle' },
 ] as const;
+
+type FactoryBin = typeof factoryItems[number]['bin'];
+
+const testingCatalogItems: { id: string; icon: string; name: string; bin: FactoryBin }[] = [
+  { id: 'test-orange', icon: '🍊', name: 'Orange', bin: 'Fruit' },
+  { id: 'test-pear', icon: '🍐', name: 'Pear', bin: 'Fruit' },
+  { id: 'test-strawberry', icon: '🍓', name: 'Strawberry', bin: 'Fruit' },
+  { id: 'test-lion', icon: '🦁', name: 'Lion', bin: 'Animal' },
+  { id: 'test-elephant', icon: '🐘', name: 'Elephant', bin: 'Animal' },
+  { id: 'test-penguin', icon: '🐧', name: 'Penguin', bin: 'Animal' },
+  { id: 'test-train', icon: '🚆', name: 'Train', bin: 'Vehicle' },
+  { id: 'test-bike', icon: '🚲', name: 'Bicycle', bin: 'Vehicle' },
+  { id: 'test-rocket', icon: '🚀', name: 'Rocket', bin: 'Vehicle' },
+];
 
 const trainingRounds = [
   { icon: '🐶', label: 'Dog' },
@@ -360,6 +374,126 @@ function GlobalStyles() {
       }
       .svgBox { width:100%; max-width:460px; height:auto; border-radius:22px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); }
       input[type="range"] { width:100%; accent-color:#4bffa5; min-height:48px; }
+      .factory-conveyor.testing-mode {
+        position:relative;
+        min-height:230px;
+        border-style:solid;
+        border-color:rgba(75,155,255,.24);
+        background:
+          radial-gradient(circle at 50% 35%, rgba(75,255,165,.11), transparent 32%),
+          repeating-linear-gradient(90deg, rgba(255,255,255,.04) 0 20px, transparent 20px 42px),
+          rgba(5,13,27,.72);
+      }
+      .factory-conveyor.drop-ready {
+        border-color:rgba(75,255,165,.72);
+        box-shadow:0 0 0 4px rgba(75,255,165,.1), 0 0 34px rgba(75,255,165,.16);
+      }
+      .factory-drop-prompt {
+        display:grid;
+        place-items:center;
+        width:min(360px, 100%);
+        min-height:150px;
+        border-radius:28px;
+        border:1px dashed rgba(75,255,165,.32);
+        color:#9fd9ff;
+        font-weight:900;
+        text-transform:uppercase;
+        font-size:.82rem;
+        letter-spacing:.12em;
+        background:rgba(16,28,46,.5);
+      }
+      .testing-giant-card {
+        position:relative;
+        display:grid;
+        place-items:center;
+        min-height:178px;
+        transform-origin:center;
+        overflow:hidden;
+        animation:factoryExpand .62s cubic-bezier(.16,1,.3,1) both;
+        will-change:transform, opacity;
+      }
+      .testing-card-icon {
+        margin:0;
+        font-size:6.8rem;
+        filter:drop-shadow(0 0 24px rgba(75,155,255,.45));
+      }
+      .testing-giant-card.processing {
+        box-shadow:0 24px 70px rgba(0,0,0,.35), 0 0 34px rgba(75,255,165,.22);
+      }
+      .factory-scanline {
+        position:absolute;
+        left:8%;
+        right:8%;
+        top:0;
+        height:4px;
+        border-radius:99px;
+        background:#4bffa5;
+        box-shadow:0 0 22px #4bffa5;
+        animation:factoryScan .78s ease-in-out infinite;
+      }
+      .testing-giant-card.route-Fruit { animation:routeFruit .78s cubic-bezier(.2,.8,.2,1) forwards; }
+      .testing-giant-card.route-Animal { animation:routeAnimal .78s cubic-bezier(.2,.8,.2,1) forwards; }
+      .testing-giant-card.route-Vehicle { animation:routeVehicle .78s cubic-bezier(.2,.8,.2,1) forwards; }
+      .factory-bin.classifying {
+        border-color:rgba(75,255,165,.85);
+        background:rgba(75,255,165,.13);
+        box-shadow:0 0 28px rgba(75,255,165,.22);
+        animation:pulseGlow .8s ease infinite;
+      }
+      .testing-catalog {
+        overflow:hidden;
+        padding:14px;
+        border-radius:22px !important;
+        background:linear-gradient(90deg, rgba(7,16,31,.96), rgba(16,28,46,.94)) !important;
+      }
+      .catalog-track {
+        display:flex;
+        gap:12px;
+        width:max-content;
+        animation:catalogDrift 24s linear infinite;
+      }
+      .testing-catalog:hover .catalog-track { animation-play-state:paused; }
+      .catalog-thumb {
+        width:64px;
+        height:64px;
+        flex:0 0 auto;
+        display:grid;
+        place-items:center;
+        border-radius:18px;
+        border:1px solid rgba(255,255,255,.12);
+        background:rgba(255,255,255,.07);
+        color:#f7fbff;
+        cursor:grab;
+        transition:transform .16s ease, border-color .16s ease, background .16s ease;
+      }
+      .catalog-thumb span {
+        font-size:2.1rem;
+        line-height:1;
+        filter:drop-shadow(0 0 13px rgba(75,155,255,.32));
+      }
+      .catalog-thumb:hover {
+        transform:translateY(-3px) scale(1.04);
+        border-color:rgba(75,255,165,.5);
+        background:rgba(75,155,255,.14);
+      }
+      .catalog-thumb:active { cursor:grabbing; }
+      .catalog-thumb:disabled {
+        opacity:.46;
+        cursor:default;
+        transform:none;
+      }
+      .factory-test-footer {
+        display:flex;
+        justify-content:space-between;
+        gap:16px;
+        align-items:center;
+        margin-top:14px;
+      }
+      .factory-test-footer .hint { margin:0; }
+      .factory-test-footer button:disabled {
+        opacity:.48;
+        cursor:not-allowed;
+      }
       .shake { animation:shake .42s ease; }
       .celebrate { animation:celebrate .45s ease; }
       .timer span { animation:timerRun 15s linear forwards; }
@@ -382,6 +516,12 @@ function GlobalStyles() {
       @keyframes flowDot { from{stroke-dashoffset:100} to{stroke-dashoffset:0} }
       @keyframes radialPulse { 0%{transform:scale(0);opacity:0.8} 100%{transform:scale(2.5);opacity:0} }
       @keyframes timerRun { from { width:100%; } to { width:0%; } }
+      @keyframes factoryExpand { from { transform:scale(.22); opacity:.35; } to { transform:scale(1); opacity:1; } }
+      @keyframes factoryScan { 0%{top:8%;opacity:.15} 18%{opacity:1} 100%{top:92%;opacity:.2} }
+      @keyframes catalogDrift { from { transform:translateX(0); } to { transform:translateX(calc(-33.333% - 8px)); } }
+      @keyframes routeFruit { to { transform:translate(-34vw, 238px) scale(.32); opacity:.08; } }
+      @keyframes routeAnimal { to { transform:translate(0, 238px) scale(.32); opacity:.08; } }
+      @keyframes routeVehicle { to { transform:translate(34vw, 238px) scale(.32); opacity:.08; } }
       @media (max-width: 920px) {
         .app { grid-template-columns:1fr; }
         .sidebar { position:relative; height:auto; }
@@ -389,6 +529,11 @@ function GlobalStyles() {
         .stage { min-height:70vh; padding:18px; border-radius:24px; }
         .cols2, .cols3, .cols4 { grid-template-columns:1fr; }
         .sectionHead { display:block; }
+        .testing-card-icon { font-size:5.3rem; }
+        .factory-test-footer { display:grid; }
+        @keyframes routeFruit { to { transform:translate(0, 238px) scale(.32); opacity:.08; } }
+        @keyframes routeAnimal { to { transform:translate(0, 362px) scale(.32); opacity:.08; } }
+        @keyframes routeVehicle { to { transform:translate(0, 486px) scale(.32); opacity:.08; } }
       }
     `}</style>
   );
@@ -735,18 +880,50 @@ function WhatIsAISection({ onComplete, onNameCaptured }: { onComplete: CompleteH
 function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [gateOpen, setGateOpen] = useState(false);
   const [index, setIndex] = useState(0);
-  const [counts, setCounts] = useState<Record<'Fruit' | 'Animal' | 'Vehicle', number>>({ Fruit: 0, Animal: 0, Vehicle: 0 });
+  const [counts, setCounts] = useState<Record<FactoryBin, number>>({ Fruit: 0, Animal: 0, Vehicle: 0 });
   const [hint, setHint] = useState('');
   const [wrongBin, setWrongBin] = useState('');
+  const [dropActive, setDropActive] = useState(false);
+  const [testingItem, setTestingItem] = useState<(typeof testingCatalogItems)[number] | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [routingBin, setRoutingBin] = useState<FactoryBin | null>(null);
+  const [testedCount, setTestedCount] = useState(0);
+
+  const done = index >= factoryItems.length;
+  const current = factoryItems[index];
+  const catalogLoop = [...testingCatalogItems, ...testingCatalogItems, ...testingCatalogItems];
+
+  useEffect(() => {
+    if (!testingItem) return;
+
+    setProcessing(false);
+    setRoutingBin(null);
+    const thinkTimer = window.setTimeout(() => setProcessing(true), 700);
+    const routeTimer = window.setTimeout(() => {
+      setProcessing(false);
+      setRoutingBin(testingItem.bin);
+    }, 1650);
+    const finishTimer = window.setTimeout(() => {
+      setCounts((prev) => ({ ...prev, [testingItem.bin]: prev[testingItem.bin] + 1 }));
+      setTestedCount((prev) => prev + 1);
+      setTestingItem(null);
+      setRoutingBin(null);
+      setHint('AI classified the raw image by using the rule you trained.');
+      playSound('success');
+    }, 2450);
+
+    return () => {
+      window.clearTimeout(thinkTimer);
+      window.clearTimeout(routeTimer);
+      window.clearTimeout(finishTimer);
+    };
+  }, [testingItem]);
 
   if (!gateOpen) {
     return <NovaGate lines={['The factory conveyor is moving again.', 'Classify each object by its features and the bins will teach the model.']} detail={sectionDetails.classification} onDone={() => setGateOpen(true)} />;
   }
 
-  const done = index >= factoryItems.length;
-  const current = factoryItems[index];
-
-  function choose(bin: 'Fruit' | 'Animal' | 'Vehicle') {
+  function choose(bin: FactoryBin) {
     if (!current) return;
     if (current.bin === bin) {
       playSound('drop');
@@ -761,36 +938,106 @@ function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) 
     }
   }
 
+  function handleTestingDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDropActive(false);
+    if (!done || testingItem) return;
+    const itemId = event.dataTransfer.getData('application/x-factory-item');
+    const item = testingCatalogItems.find((candidate) => candidate.id === itemId);
+    if (!item) return;
+    playSound('drop');
+    setHint('');
+    setTestingItem(item);
+  }
+
+  function handleDragStart(event: React.DragEvent<HTMLButtonElement>, itemId: string) {
+    event.dataTransfer.setData('application/x-factory-item', itemId);
+    event.dataTransfer.effectAllowed = 'copy';
+  }
+
   return (
     <>
-      <SectionHeader section="classification" note="Sort one item at a time and watch the class counts update." />
-      <div className="conveyor">
-        {done ? <div className="banner">Factory bins open!</div> : (
+      <SectionHeader
+        section="classification"
+        note={done ? 'Drag raw examples into the conveyor and watch the trained AI classify them.' : 'Sort one item at a time and watch the class counts update.'}
+      />
+      <div
+        className={`conveyor factory-conveyor ${done ? 'testing-mode' : ''} ${dropActive ? 'drop-ready' : ''}`}
+        onDragOver={(event) => {
+          if (!done || testingItem) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        }}
+        onDragEnter={() => done && !testingItem && setDropActive(true)}
+        onDragLeave={() => setDropActive(false)}
+        onDrop={handleTestingDrop}
+      >
+        {!done ? (
           <div style={cardStyle} className="itemCard">
             <span className="emoji">{current.icon}</span>
             <h3>{current.name}</h3>
             <p className="small">{current.desc}</p>
           </div>
+        ) : testingItem ? (
+          <div
+            style={cardStyle}
+            className={`itemCard testing-giant-card ${processing ? 'processing' : ''} ${routingBin ? `route-${routingBin}` : ''}`}
+            aria-label={`Unlabeled ${testingItem.name} image`}
+          >
+            <span className="emoji testing-card-icon">{testingItem.icon}</span>
+            {processing && <span className="factory-scanline" aria-hidden="true" />}
+          </div>
+        ) : (
+          <div className="factory-drop-prompt">
+            <span>Drop raw data here</span>
+          </div>
         )}
       </div>
       <div className="grid cols3" style={{ marginTop: 18 }}>
         {(['Fruit', 'Animal', 'Vehicle'] as const).map((bin) => (
-          <button key={bin} className={`tile ${wrongBin === bin ? 'shake' : ''}`} style={{ position: 'relative' }} onClick={() => choose(bin)} disabled={done}>
+          <button
+            key={bin}
+            className={`tile factory-bin ${wrongBin === bin ? 'shake' : ''} ${routingBin === bin ? 'classifying' : ''}`}
+            style={{ position: 'relative' }}
+            onClick={() => choose(bin)}
+            disabled={done}
+          >
             <span className="count">{counts[bin]}</span>
             <span className="emoji">{bin === 'Fruit' ? '🍎' : bin === 'Animal' ? '🐾' : '🚗'}</span>
             <b>{bin}</b>
           </button>
         ))}
       </div>
-      <div style={{ ...cardStyle, marginTop: 18 }}>
-        {done ? (
-          <>
-            <BarChart counts={counts} />
-            <p className="small">The AI learned your sorting rule. It can now classify new items it's never seen.</p>
-            <button style={primaryBtn} onClick={onComplete}>Power Next District</button>
-          </>
-        ) : <p className="hint">{hint}</p>}
-      </div>
+      {done ? (
+        <>
+          <div style={{ ...cardStyle, marginTop: 18 }} className="testing-catalog" aria-label="Raw testing image catalog">
+            <div className="catalog-track">
+              {catalogLoop.map((item, loopIndex) => (
+                <button
+                  key={`${item.id}-${loopIndex}`}
+                  className="catalog-thumb"
+                  draggable={!testingItem}
+                  onDragStart={(event) => handleDragStart(event, item.id)}
+                  disabled={!!testingItem}
+                  aria-label={`Drag unlabeled ${item.name} image to conveyor`}
+                >
+                  <span>{item.icon}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="factory-test-footer">
+            <p className="hint">{hint || (testingItem ? 'AI is reading image features...' : 'Choose any tiny image and drop it onto the conveyor.')}</p>
+            <button style={primaryBtn} onClick={onComplete} disabled={testedCount === 0}>
+              Power Next District
+            </button>
+          </div>
+        </>
+      ) : (
+        <div style={{ ...cardStyle, marginTop: 18 }}>
+          <p className="hint">{hint}</p>
+        </div>
+      )}
     </>
   );
 }
@@ -1047,7 +1294,7 @@ function RegressionSection({ onComplete }: { onComplete: CompleteHandler }) {
   if (!gateOpen) {
     return (
       <NovaGate
-        lines={['The Neural Prediction Terminal is online.', 'Add study and sleep samples to teach the AI the hidden relationship.']}
+        lines={['The Neural Prediction Terminal is online.', 'Add study-hours examples to teach the AI the hidden relationship.']}
         detail={sectionDetails.regression}
         onDone={() => setGateOpen(true)}
       />
@@ -1056,7 +1303,7 @@ function RegressionSection({ onComplete }: { onComplete: CompleteHandler }) {
 
   return (
     <>
-      <SectionHeader section="regression" note="Train the neural predictor by adding observations and watch the line learn." />
+      <SectionHeader section="regression" note="Click on the graph to add 6 data points and teach the AI how study hours affect marks." />
       <RegressionLab onComplete={onComplete} />
     </>
   );

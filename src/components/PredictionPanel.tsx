@@ -20,15 +20,15 @@ export function PredictionPanel({ studyHours, predictedMarks, onStudyHoursChange
   const handleStudyHoursChange = (value: string) => {
     const normalizedValue = removeLeadingZeros(value);
     setStudyHoursInput(normalizedValue);
+    if (normalizedValue === '') {
+      onStudyHoursChange(Number.NaN);
+      return;
+    }
     onStudyHoursChange(Number(normalizedValue));
   };
 
   return (
     <div className="prediction-panel">
-      <div className="prediction-header">
-        <div className="prediction-title">MODEL OUTPUT</div>
-        <div className="prediction-subtitle">The AI is now ready to make predictions.</div>
-      </div>
       <div className="prediction-row">
         <label htmlFor="study-hours">Study Hours</label>
         <input
@@ -53,7 +53,6 @@ export function PredictionPanel({ studyHours, predictedMarks, onStudyHoursChange
           {predictedMarks === null ? '--' : Math.round(predictedMarks)}
         </div>
       </div>
-      <div className="prediction-note">The highlighted point shows the AI's prediction.</div>
     </div>
   );
 }
