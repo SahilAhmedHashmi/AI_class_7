@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { playSound } from '../utils/sound';
 import { BossArena } from './BossArena';
-import { HealthBar } from './HealthBar';
 import { QuestionPanel } from './QuestionPanel';
 import type { BossQuestion } from './QuestionPanel';
 import { DialogueBox } from './DialogueBox';
@@ -45,6 +44,10 @@ export function BossBattle({ questions, onBossDamage, onVictory }: BossBattlePro
   const [bossTaunt, setBossTaunt] = useState(BOSS_TAUNTS[0]);
   const timeoutIds = useRef<number[]>([]);
 
+  const currentQuestion = questions[currentIndex];
+  const finalQuestion = currentIndex === questions.length - 1;
+  const bossDamagePerQuestion = useMemo(() => Math.ceil(100 / questions.length), [questions.length]);
+
   const scheduleTimeout = (callback: () => void, delay: number) => {
     const id = window.setTimeout(callback, delay);
     timeoutIds.current.push(id);
@@ -57,9 +60,6 @@ export function BossBattle({ questions, onBossDamage, onVictory }: BossBattlePro
       timeoutIds.current = [];
     };
   }, []);
-
-  const currentQuestion = questions[currentIndex];
-  const finalQuestion = currentIndex === questions.length - 1;
 
   useEffect(() => {
     setBossTaunt(BOSS_TAUNTS[Math.floor(Math.random() * BOSS_TAUNTS.length)]);
@@ -115,7 +115,7 @@ export function BossBattle({ questions, onBossDamage, onVictory }: BossBattlePro
       setPhase('heroAttack');
       playSound('power');
       scheduleTimeout(() => {
-        setBossHp((prev) => Math.max(0, prev - 25));
+        setBossHp((prev) => Math.max(0, prev - bossDamagePerQuestion));
         onBossDamage?.();
       }, 900);
       scheduleTimeout(() => {
@@ -152,7 +152,6 @@ export function BossBattle({ questions, onBossDamage, onVictory }: BossBattlePro
         return next;
       });
     }, 1800);
-    return;
   };
 
   const resetBattle = () => {
@@ -169,8 +168,6 @@ export function BossBattle({ questions, onBossDamage, onVictory }: BossBattlePro
 
   const battleClass = `boss-battle-shell ${phase}`;
 
-  const bossSegments = 10;
-
   return (
     <div className={battleClass}>
       <div className={`cinematic-bars ${phase !== 'question' ? 'show' : ''}`} />
@@ -178,26 +175,36 @@ export function BossBattle({ questions, onBossDamage, onVictory }: BossBattlePro
 
       <div className="hud">
         <div className="hud-left">
-          <div className="player-face">HERO</div>
-          <div className="player-hp">HP {heroHp}%</div>
+          <div className="hud-label">HERO</div>
+          <div className="hud-meter">
+            <span className="hud-meter-fill hero" style={{ width: `${heroHp}%` }} />
+          </div>
+          <div className="hud-value">HP {heroHp}%</div>
         </div>
         <div className="hud-center">
           <div className="boss-name">AETHERION, THE OVERMIND AI</div>
-          <div className="hud-sub">FINAL SHOWDOWN — Question {currentIndex + 1}/{questions.length}</div>
+          <div className="hud-sub">FINAL SHOWDOWN - Question {currentIndex + 1}/{questions.length}</div>
+          <div className="hud-meter boss">
+            <span className="hud-meter-fill boss" style={{ width: `${bossHp}%` }} />
+          </div>
         </div>
         <div className="hud-right">
-          <div className="boss-label">CORE</div>
-          <div className="hp-segments">
-            {Array.from({ length: bossSegments }).map((_, i) => {
-              const threshold = Math.round(((i + 1) / bossSegments) * 100);
-              const filled = bossHp >= threshold;
-              return <span key={i} className={`segment ${filled ? 'filled' : ''}`} />;
-            })}
+          <div className="hud-label">CORE</div>
+          <div className="hud-meter core">
+            <span className="hud-meter-fill core" style={{ width: `${bossHp}%` }} />
           </div>
+          <div className="hud-value">{bossHp}%</div>
         </div>
       </div>
 
-      <BossArena phase={phase} bossHealth={bossHp} heroHealth={heroHp} finalAttack={phase === 'finalBlast'} bossDamaged={phase === 'heroAttack' || phase === 'finalBlast'} heroDamaged={phase === 'bossAttack'} />
+      <BossArena
+        phase={phase}
+        bossHealth={bossHp}
+        heroHealth={heroHp}
+        finalAttack={phase === 'finalBlast'}
+        bossDamaged={phase === 'heroAttack' || phase === 'finalBlast'}
+        heroDamaged={phase === 'bossAttack'}
+      />
 
       <DialogueBox
         speaker={phase === 'bossAttack' || phase === 'bossDeath' ? 'AETHERION' : 'HERO'}
@@ -229,7 +236,7 @@ export function BossBattle({ questions, onBossDamage, onVictory }: BossBattlePro
           <div className="dialogue-header">
             <span className="dialogue-speaker">SYSTEM</span>
           </div>
-          <div className="dialogue-line">AETHERION DEFEATED — MISSION COMPLETE</div>
+          <div className="dialogue-line">AETHERION DEFEATED - MISSION COMPLETE</div>
           <div className="dialogue-subline">AI MASTER ACHIEVED</div>
         </div>
       )}
@@ -239,7 +246,7 @@ export function BossBattle({ questions, onBossDamage, onVictory }: BossBattlePro
           <div className="dialogue-header">
             <span className="dialogue-speaker">SYSTEM</span>
           </div>
-          <div className="dialogue-line">MISSION FAILED — AETHERION PREVAILS</div>
+          <div className="dialogue-line">MISSION FAILED - AETHERION PREVAILS</div>
           <div className="dialogue-subline">Retry the battle or return to the module.</div>
           <div className="question-options">
             <button className="question-option" onClick={resetBattle}>Retry Battle</button>

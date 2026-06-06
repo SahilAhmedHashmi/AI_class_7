@@ -1,489 +1,157 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
 .boss-battle-shell {
+  position: relative;
   display: grid;
-  gap: 20px;
-  color: #d8f4ff;
-  font-family: 'Press Start 2P', 'Segoe UI', Roboto, sans-serif;
-  -webkit-font-smoothing: none;
+  gap: 18px;
+  color: #ffffff;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.battle-header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 18px;
+.hud,
+.boss-arena,
+.dialogue-box,
+.question-panel {
+  background: #081527;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: none;
 }
 
 .hud {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 18px;
-  background: linear-gradient(180deg,#071018 0%, rgba(9,18,31,0.6) 100%);
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: inset 0 -6px 18px rgba(0,0,0,0.5);
-  font-family: 'Segoe UI', monospace;
-}
-
-.hud-left, .hud-center, .hud-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.player-face {
-  width: 40px;
-  height: 24px;
-  background: linear-gradient(90deg,#4b9bff,#3b77d3);
-  color: #071026;
   display: grid;
-  place-items: center;
-  border-radius: 6px;
-  font-weight: 700;
-}
-
-.player-hp {
-  color: #bce9ff;
-  font-size: 0.95rem;
-}
-
-.boss-name {
-  color: #ffd76a;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.hud-sub {
-  color: #9fdcff;
-  font-size: 0.82rem;
-}
-
-.boss-label {
-  color: #ffb3b3;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.hp-segments {
-  display: flex;
-  gap: 6px;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr) minmax(180px, 1fr);
   align-items: center;
+  gap: 18px;
+  padding: 16px;
 }
 
-.hp-segments .segment {
-  width: 18px;
-  height: 8px;
-  border-radius: 3px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(0,0,0,0.35);
-}
-
-.hp-segments .segment.filled {
-  background: linear-gradient(90deg,#ff6b7c,#ffd76a);
-  box-shadow: 0 0 8px rgba(255,120,120,0.25);
-}
-
-/* Pixelated HUD treatment */
-.hud, .hud * {
-  image-rendering: pixelated;
-}
-
-.battle-title {
-  text-align: center;
-  font-size: 1.05rem;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: #80dfff;
-}
-
-.battle-title span {
-  display: block;
-  font-size: 0.9rem;
-  color: #a2ecff;
-}
-
-.health-bar-panel {
+.hud-left,
+.hud-center,
+.hud-right {
   display: grid;
   gap: 8px;
 }
 
-.health-bar-label {
-  font-size: 0.8rem;
-  letter-spacing: 0.12em;
-  color: #8fd7ff;
+.hud-center {
+  text-align: center;
 }
 
-.health-bar-frame {
-  width: 100%;
-  height: 14px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.08);
+.hud-label,
+.boss-name,
+.question-title,
+.dialogue-speaker {
+  color: #4ade80;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hud-label,
+.dialogue-speaker,
+.question-title {
+  font-size: 0.78rem;
+}
+
+.boss-name {
+  font-size: 0.95rem;
+}
+
+.hud-sub,
+.hud-value,
+.dialogue-subline {
+  color: #b7c6d8;
+  font-size: 0.88rem;
+}
+
+.hud-meter {
+  position: relative;
+  height: 12px;
   overflow: hidden;
-  box-shadow: inset 0 0 12px rgba(0,0,0,0.25);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.health-bar-fill {
+.hud-meter-fill {
+  display: block;
   height: 100%;
-  transition: width 0.6s ease;
+  border-radius: inherit;
+  transition: width 0.45s ease;
 }
 
-.health-bar-percent {
-  font-size: 0.8rem;
-  color: #bcdfff;
+.hud-meter-fill.hero,
+.hud-meter-fill.core {
+  background: #22c55e;
+}
+
+.hud-meter-fill.boss {
+  background: #ff3b4f;
 }
 
 .boss-arena {
   position: relative;
   overflow: hidden;
-  border-radius: 26px;
-  background: radial-gradient(circle at 30% 20%, rgba(71, 219, 255, 0.08), transparent 24%),
-    radial-gradient(circle at 70% 28%, rgba(132, 68, 255, 0.08), transparent 20%),
-    linear-gradient(180deg, #060b14 0%, #0b1421 100%);
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: inset 0 0 80px rgba(55, 97, 158, 0.18);
-  padding: 24px;
+  aspect-ratio: 16 / 9;
+  padding: 0;
 }
 
-/* Scanline overlay and subtle CRT vignette for pixel-art feel */
-.boss-arena::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 18;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    rgba(0,0,0,0) 0px,
-    rgba(0,0,0,0.06) 1px,
-    rgba(0,0,0,0) 2px
-  );
-  opacity: 0.22;
-  mix-blend-mode: multiply;
-}
-
-.boss-arena::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 19;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.35) 100%);
-}
-
-.arena-glow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: radial-gradient(circle at top left, rgba(96, 230, 255, 0.08), transparent 18%),
-    radial-gradient(circle at bottom right, rgba(88, 122, 255, 0.1), transparent 20%);
-}
-
-.arena-grid {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr 220px 1fr;
-  gap: 24px;
-  align-items: center;
-}
-
-.arena-column {
-  display: grid;
-  gap: 14px;
-  align-items: center;
-}
-
-.arena-label {
-  font-size: 0.75rem;
-  letter-spacing: 0.16em;
-  color: #7accff;
-}
-
-.arena-stat {
-  font-size: 0.98rem;
-  color: #d0e7ff;
-}
-
-.arena-center-panel {
-  display: grid;
-  gap: 12px;
-  text-align: center;
-}
-
-.arena-core {
-  padding: 16px 18px;
-  border-radius: 22px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: #b8f3ff;
-  letter-spacing: 0.12em;
-}
-
-.arena-tubes {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.arena-tubes span {
-  width: 8px;
-  height: 48px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(72, 236, 255, 0.95), rgba(9, 30, 66, 0.25));
-}
-
-.hero-sprite,
-.boss-sprite {
-  position: relative;
-  width: 150px;
-  height: 160px;
-}
-
-/* Force pixelated rendering for raster sprites to keep crisp pixels */
-.hero-sprite img,
-.boss-sprite img,
-.hero-sprite svg,
-.boss-sprite svg {
+.boss-arena-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
 
-.hero-sprite {
-  margin: 0 auto;
-}
-
-.hero-armor {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.hero-head {
+.arena-status-strip {
   position: absolute;
-  top: 10px;
-  left: 26px;
-  width: 98px;
-  height: 34px;
-  border-radius: 16px 16px 10px 10px;
-  background: linear-gradient(180deg, #5ad7ff 0%, #1f6b8e 100%);
-  border: 2px solid rgba(255,255,255,0.18);
-}
-
-.hero-visor {
-  position: absolute;
-  left: 14px;
-  top: 10px;
-  width: 70px;
-  height: 14px;
-  border-radius: 8px;
-  background: linear-gradient(90deg, #f8b55e, #ff8d5c);
-  box-shadow: 0 0 18px rgba(255, 158, 86, 0.55);
-}
-
-.hero-body {
-  position: absolute;
-  top: 46px;
   left: 12px;
-  width: 126px;
-  height: 86px;
-}
-
-.hero-chest {
-  position: absolute;
-  left: 20px;
-  top: 8px;
-  width: 86px;
-  height: 54px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #4e9cff 0%, #18355d 100%);
-  border: 2px solid rgba(255,255,255,0.18);
-}
-
-.hero-arm {
-  position: absolute;
-  top: 32px;
-  width: 22px;
-  height: 54px;
-  background: linear-gradient(180deg, #4b96f8 0%, #0f2544 100%);
-  border: 2px solid rgba(255,255,255,0.18);
-  border-radius: 14px;
-}
-
-.hero-arm.left-arm {
-  left: -4px;
-}
-
-.hero-arm.right-arm {
-  right: -4px;
-}
-
-.hero-legs {
-  position: absolute;
-  bottom: -4px;
-  left: 20px;
-  width: 110px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.hero-legs span {
-  width: 20px;
-  height: 30px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #4d9eff 0%, #0e304c 100%);
-}
-
-.hero-sprite.charging .hero-visor {
-  box-shadow: 0 0 24px rgba(255, 199, 88, 0.8);
-}
-
-.hero-sprite.final-charge .hero-visor {
-  transform: scaleX(1.05);
-}
-
-.hero-sprite.hurt {
-  animation: hero-hit 0.35s ease;
-}
-
-.boss-sprite {
-  margin: 0 auto;
-}
-
-.boss-head {
-  position: absolute;
-  top: 10px;
-  left: 16px;
-  width: 118px;
-  height: 68px;
-  border-radius: 24px 24px 18px 18px;
-  background: linear-gradient(180deg, #231430 0%, #061018 100%);
-  border: 2px solid rgba(255,255,255,0.14);
-}
-
-.boss-eye {
-  position: absolute;
-  top: 18px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #ff5d5d 0%, #790000 70%);
-  box-shadow: 0 0 18px rgba(255, 100, 100, 0.7);
-}
-
-.boss-eye.left {
-  left: 24px;
-}
-
-.boss-eye.right {
-  right: 24px;
-}
-
-.boss-core {
-  position: absolute;
-  left: 36px;
+  right: 12px;
   bottom: 12px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #5efc82 0%, #0b4221 90%);
-  border: 2px solid rgba(255,255,255,0.16);
-  box-shadow: 0 0 18px rgba(94, 252, 130, 0.6);
-}
-
-.boss-body {
-  position: absolute;
-  bottom: 6px;
-  left: 10px;
-  width: 130px;
-  height: 98px;
-  border-radius: 26px;
-  background: linear-gradient(180deg, #10182d 0%, #081116 100%);
-  border: 2px solid rgba(255,255,255,0.12);
-}
-
-.boss-arms {
-  position: absolute;
-  top: 10px;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-}
-
-.boss-claw {
-  width: 24px;
-  height: 64px;
-  background: linear-gradient(180deg, #173053 0%, #02070c 100%);
-  border-radius: 14px;
-}
-
-.boss-chest {
-  position: absolute;
-  top: 18px;
-  left: 24px;
-  width: 82px;
-  height: 52px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #2e3f6e 0%, #08101f 100%);
-}
-
-.boss-tubes {
-  position: absolute;
-  bottom: 8px;
-  left: 18px;
-  width: 94px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.boss-tubes span {
-  width: 8px;
-  height: 32px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(99,255,176,0.95), rgba(25,73,71,0.20));
-}
-
-.boss-sprite.charging .boss-core,
-.boss-sprite.final-power .boss-core {
-  animation: boss-core-glow 1s ease infinite alternate;
-}
-
-.boss-sprite.hurt {
-  animation: boss-hit 0.4s ease;
-}
-
-.hero-sprite.hurt .hero-armor,
-.boss-sprite.hurt .boss-head,
-.boss-sprite.hurt .boss-body {
-  filter: brightness(1.4);
-}
-
-.question-panel {
-  border-radius: 24px;
-  padding: 22px;
-  background: rgba(9, 18, 31, 0.95);
-  border: 1px solid rgba(255,255,255,0.08);
   display: grid;
-  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  pointer-events: none;
+}
+
+.arena-status-strip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 21, 39, 0.86);
+  color: #dbeafe;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.boss-arena.boss-damaged .boss-arena-image,
+.boss-arena.hero-damaged .boss-arena-image {
+  filter: brightness(1.08);
+}
+
+.question-panel,
+.dialogue-box {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
 }
 
 .question-header {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
-.question-title {
-  color: #7cd7ff;
-  letter-spacing: 0.16em;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-}
-
-.question-prompt {
+.question-prompt,
+.dialogue-line {
+  color: #ffffff;
   font-size: 1rem;
-  line-height: 1.6;
-  color: #d5eeff;
+  line-height: 1.55;
 }
 
 .question-options {
@@ -493,88 +161,70 @@
 }
 
 .question-option {
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 16px;
-  background: rgba(255,255,255,0.04);
-  color: #e7f5ff;
-  padding: 14px 16px;
+  min-height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: #0d1b2e;
+  color: #ffffff;
+  padding: 13px 16px;
   text-align: left;
-  font-size: 0.95rem;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.35;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  transition: filter 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
 }
 
 .question-option:hover:not(:disabled) {
-  transform: translateY(-2px);
-  border-color: rgba(126, 232, 255, 0.55);
+  filter: brightness(1.16);
+  border-color: rgba(255, 255, 255, 0.24);
 }
 
 .question-option.selected {
-  border-color: #80daff;
-  background: rgba(126, 232, 255, 0.14);
+  border-color: #60a5fa;
+  background: #10243c;
 }
 
 .question-option.correct {
-  border-color: #6ef289;
-  background: rgba(110, 242, 137, 0.16);
+  border-color: #4ade80;
+  background: #102a24;
 }
 
 .question-option.incorrect {
-  border-color: #ff6c6c;
-  background: rgba(255, 108, 108, 0.14);
+  border-color: #ff3b4f;
+  background: #2a131c;
 }
 
 .question-option:disabled {
-  opacity: 0.65;
   cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .question-explanation {
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: #dbeafe;
+  font-size: 0.94rem;
+  line-height: 1.6;
   padding-top: 12px;
-  color: #c3e2ff;
-  font-size: 0.92rem;
-  line-height: 1.7;
 }
 
-.question-explanation.correct {
-  color: #a8ffcc;
+.question-explanation p {
+  margin: 6px 0 0;
 }
 
-.question-explanation.incorrect {
-  color: #ffa8a8;
+.question-explanation.correct strong {
+  color: #4ade80;
 }
 
-.dialogue-box {
-  border-radius: 22px;
-  padding: 20px 22px;
-  background: rgba(6, 14, 27, 0.95);
-  border: 1px solid rgba(255,255,255,0.1);
-  display: grid;
-  gap: 8px;
+.question-explanation.incorrect strong {
+  color: #ff6b7a;
 }
 
 .dialogue-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-}
-
-.dialogue-speaker {
-  font-size: 0.8rem;
-  letter-spacing: 0.16em;
-  color: #74e3ff;
-}
-
-.dialogue-line {
-  font-size: 1rem;
-  color: #e5f7ff;
-  line-height: 1.6;
-}
-
-.dialogue-subline {
-  font-size: 0.88rem;
-  color: #9fdcff;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .battle-effects {
@@ -583,61 +233,12 @@
   pointer-events: none;
 }
 
-.charge-ring {
-  position: absolute;
-  border-radius: 50%;
-  opacity: 0.32;
-  box-shadow: 0 0 30px rgba(126, 232, 255, 0.45);
-}
-
-.hero-charge {
-  width: 180px;
-  height: 180px;
-  left: 12%;
-  top: 20%;
-  border: 2px solid rgba(126, 232, 255, 0.45);
-  animation: pulse-ring 0.9s ease infinite;
-}
-
-.boss-charge {
-  width: 220px;
-  height: 220px;
-  right: 12%;
-  top: 14%;
-  border: 2px solid rgba(255, 96, 96, 0.44);
-  animation: pulse-ring 0.9s ease infinite;
-}
-
-.damage-flash {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.boss-hit {
-  background: radial-gradient(circle, rgba(255, 115, 115, 0.28), transparent 45%);
-  animation: flash-hit 0.28s ease;
-}
-
-.hero-hit {
-  background: radial-gradient(circle, rgba(95, 171, 255, 0.32), transparent 45%);
-  animation: flash-hit 0.28s ease;
-}
-
+.charge-ring,
+.damage-flash,
 .final-beam {
-  position: absolute;
-  left: 50%;
-  top: 10%;
-  width: 18px;
-  height: 80%;
-  background: linear-gradient(180deg, rgba(126, 229, 255, 0.95) 0%, rgba(55, 240, 255, 0.24) 100%);
-  transform: translateX(-50%);
-  box-shadow: 0 0 80px rgba(126, 229, 255, 0.65);
-  animation: beam-pulse 0.4s ease infinite;
+  display: none;
 }
 
-/* Cinematic black bars for dramatic scenes */
 .cinematic-bars {
   position: absolute;
   left: 0;
@@ -647,90 +248,48 @@
   transition: height 280ms ease;
   z-index: 30;
 }
+
 .cinematic-bars.show {
-  height: 72px;
+  height: 36px;
 }
+
 .cinematic-bars.bottom {
   bottom: 0;
   top: auto;
 }
+
 .cinematic-bars:not(.bottom) {
   top: 0;
   bottom: auto;
 }
+
 .cinematic-bars::after {
-  content: '';
+  content: "";
   display: block;
   height: 100%;
-  background: linear-gradient(180deg,#000 0%, rgba(0,0,0,0.96) 100%);
+  background: #020817;
 }
 
-/* Retro dialogue treatment inside boss battle */
-.boss-battle-shell .dialogue-box {
-  background: linear-gradient(180deg, rgba(12,18,30,0.98), rgba(10,12,20,0.95));
-  border: 2px solid rgba(200,220,255,0.07);
-  padding: 14px 16px;
-  border-radius: 6px;
-  box-shadow: 0 8px 30px rgba(1,6,12,0.6);
-  font-family: 'Segoe UI', monospace;
-}
-
-.boss-battle-shell .dialogue-speaker {
-  color: #ffd76a;
-  font-weight: 800;
-}
-
-.boss-battle-shell .dialogue-line {
-  font-size: 0.98rem;
-  color: #e6f9ff;
-}
-
-@keyframes pulse-ring {
-  0% { transform: scale(0.96); opacity: 0.35; }
-  50% { transform: scale(1.08); opacity: 0.12; }
-  100% { transform: scale(0.96); opacity: 0.35; }
-}
-
-@keyframes flash-hit {
-  0% { opacity: 0; }
-  50% { opacity: 0.45; }
-  100% { opacity: 0; }
-}
-
-@keyframes boss-core-glow {
-  from { box-shadow: 0 0 20px rgba(94, 252, 130, 0.5); }
-  to { box-shadow: 0 0 42px rgba(255, 121, 121, 0.75); }
-}
-
-@keyframes boss-hit {
-  0% { transform: translateX(0); }
-  25% { transform: translateX(-10px); }
-  50% { transform: translateX(10px); }
-  75% { transform: translateX(-6px); }
-  100% { transform: translateX(0); }
-}
-
-@keyframes beam-pulse {
-  from { opacity: 0.8; transform: translateX(-50%) scaleY(0.95); }
-  to { opacity: 1; transform: translateX(-50%) scaleY(1.05); }
-}
-
-.hero-hit,
-.boss-hit {
-  animation-fill-mode: forwards;
+.victory-sequence,
+.defeat-panel {
+  position: relative;
+  z-index: 35;
 }
 
 @media (max-width: 900px) {
-  .battle-header {
+  .hud {
     grid-template-columns: 1fr;
-    text-align: center;
   }
 
-  .arena-grid {
-    grid-template-columns: 1fr;
+  .hud-center {
+    text-align: left;
   }
 
   .question-options {
+    grid-template-columns: 1fr;
+  }
+
+  .arena-status-strip {
     grid-template-columns: 1fr;
   }
 }

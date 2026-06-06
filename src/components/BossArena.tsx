@@ -1,6 +1,3 @@
-import { BossSprite } from './BossSprite';
-import { HeroSprite } from './HeroSprite';
-
 interface BossArenaProps {
   phase: string;
   bossHealth: number;
@@ -10,29 +7,14 @@ interface BossArenaProps {
   heroDamaged: boolean;
 }
 
-export function BossArena({ phase, bossHealth, heroHealth, finalAttack, bossDamaged, heroDamaged }: BossArenaProps) {
+export function BossArena({ phase, finalAttack, bossDamaged, heroDamaged }: BossArenaProps) {
   return (
-    <div className={`boss-arena stage-${phase} ${finalAttack ? 'final-beam' : ''}`}>
-      <div className="arena-glow" />
-      <div className="arena-grid">
-        <div className={`arena-column hero-column ${heroDamaged ? 'hurt' : ''}`}>
-          <div className="arena-label">HERO DEPLOYED</div>
-          <HeroSprite charging={phase === 'heroAttack' || phase === 'finalCharge' || phase === 'finalBlast'} damaged={heroDamaged} final={finalAttack} />
-          <div className="arena-stat">{heroHealth}%</div>
-        </div>
-        <div className="arena-center-panel">
-          <div className="arena-core">AI LAB CORE</div>
-          <div className="arena-tubes">
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
-        <div className={`arena-column boss-column ${bossDamaged ? 'hurt' : ''}`}>
-          <div className="arena-label">AETHERION</div>
-          <BossSprite charging={phase === 'bossAttack'} damaged={bossDamaged} final={finalAttack} />
-          <div className="arena-stat">{bossHealth}%</div>
-        </div>
+    <div className={`boss-arena stage-${phase} ${finalAttack ? 'final-beam-active' : ''} ${bossDamaged ? 'boss-damaged' : ''} ${heroDamaged ? 'hero-damaged' : ''}`}>
+      <img className="boss-arena-image" src="/boss-arena-neocity.svg" alt="NeoCity command deck pixel art viewport" />
+      <div className="arena-status-strip" aria-hidden="true">
+        <span>HERO LINK</span>
+        <span>CORE VIEWPORT</span>
+        <span>AETHERION SIGNAL</span>
       </div>
     </div>
   );
