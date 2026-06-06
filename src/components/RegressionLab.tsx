@@ -139,7 +139,7 @@ export function RegressionLab({ onComplete }: RegressionLabProps) {
           predictionPoint={phase === 'testing' ? predictionPoint : null}
           onAddPoint={(point) => {
             addPoint(point);
-            playSound('click');
+            playSound('regressionPointClick');
           }}
         />
 

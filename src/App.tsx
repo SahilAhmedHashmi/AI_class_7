@@ -22,7 +22,7 @@ type SectionKey =
   | 'finalMission';
 
 type MissionKey = Exclude<SectionKey, 'landing'>;
-type SoundType = 'click' | 'drop' | 'success' | 'error' | 'power';
+type SoundType = 'click' | 'drop' | 'success' | 'error' | 'power' | 'vaultUnlock';
 type CompleteHandler = () => void;
 type Sentiment = 'Positive' | 'Neutral' | 'Negative';
 type SectionDetail = {
@@ -577,6 +577,19 @@ function clamp(n: number, min = 0, max = 100) {
 }
 
 function playSound(type: SoundType) {
+  if (type === 'vaultUnlock') {
+    try {
+      const audio = new Audio('/sounds/vault-unlock.mp3');
+      audio.volume = 0.85;
+      void audio.play().catch(() => {
+        // Audio is optional. Some browsers block playback until a user gesture.
+      });
+    } catch {
+      // Audio is optional. Some browsers block it until a user gesture.
+    }
+    return;
+  }
+
   try {
     const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     const ctx = new AudioContextCtor();
@@ -3183,7 +3196,7 @@ function DataTypesSection({ onComplete }: { onComplete: CompleteHandler }) {
 
   function answer(choice: string) {
     if (choice === riddles[index].answer) {
-      playSound('drop');
+      playSound(index === riddles.length - 1 ? 'vaultUnlock' : 'drop');
       setIndex((prev) => prev + 1);
       setHint('');
     } else {

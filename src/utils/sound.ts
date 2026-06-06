@@ -1,6 +1,10 @@
 const AudioContextClass = typeof window !== 'undefined' ? (window.AudioContext || (window as any).webkitAudioContext) : null;
 const audioContext = AudioContextClass ? new AudioContextClass() : null;
 
+const fileSounds = {
+  regressionPointClick: '/sounds/regression-point-click.mp3',
+} as const;
+
 function createTone(frequency: number, duration = 0.12, type: OscillatorType = 'sine') {
   if (!audioContext) return;
   const oscillator = audioContext.createOscillator();
@@ -18,7 +22,22 @@ function createTone(frequency: number, duration = 0.12, type: OscillatorType = '
   oscillator.stop(audioContext.currentTime + duration + 0.02);
 }
 
-export function playSound(type: 'click' | 'success' | 'error' | 'drop' | 'boss' | 'power') {
+function playFileSound(src: string, volume = 1) {
+  if (typeof Audio === 'undefined') return;
+
+  const audio = new Audio(src);
+  audio.volume = volume;
+  void audio.play().catch(() => {
+    // Audio is optional. Some browsers block playback until a user gesture.
+  });
+}
+
+export function playSound(type: 'click' | 'success' | 'error' | 'drop' | 'boss' | 'power' | 'regressionPointClick') {
+  if (type === 'regressionPointClick') {
+    playFileSound(fileSounds.regressionPointClick, 0.75);
+    return;
+  }
+
   if (!audioContext) return;
 
   switch (type) {
