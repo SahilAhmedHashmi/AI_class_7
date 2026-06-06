@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, createContext, useContext } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, DragEvent, KeyboardEvent, MutableRefObject, PointerEvent, ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { forceCollide, forceManyBody, forceSimulation, forceX, forceY } from 'd3-force';
+import type { Simulation } from 'd3-force';
 import { BossBattle, BossQuestion } from './components/BossBattle';
 import { RegressionLab } from './components/RegressionLab';
 
@@ -22,6 +25,11 @@ type MissionKey = Exclude<SectionKey, 'landing'>;
 type SoundType = 'click' | 'drop' | 'success' | 'error' | 'power';
 type CompleteHandler = () => void;
 type Sentiment = 'Positive' | 'Neutral' | 'Negative';
+type SectionDetail = {
+  title: string;
+  text?: string;
+  sections?: { heading: string; body: string }[];
+};
 
 const sectionOrder: SectionKey[] = [
   'landing',
@@ -49,11 +57,14 @@ const sectionTitles: Record<SectionKey, string> = {
   regression: 'Regression Observatory',
   clustering: 'Clustering Forest',
   dataTypes: 'The Data Vault',
-  aiWorkflow: 'The AI Pipeline Machine',
+  aiWorkflow: 'The AI Pipeline',
   finalMission: 'Restore the AI Core',
 };
 
-const sectionDetails: Partial<Record<SectionKey, { title: string; text: string }>> = {
+const regressionBriefing =
+  "Captain Nova here! To teach our AI how to predict test scores, it needs examples. Your Mission: Plot data points on the board to show how many hours a student studied, and what score they got. The Rule: Give the AI at least 5 different examples. Once it has enough data, it will try to find the hidden pattern! Ready?";
+
+const sectionDetails: Partial<Record<SectionKey, SectionDetail>> = {
   classification: {
     title: 'Why classification matters',
     text: 'Classification is how AI puts things into categories based on their features. In the activity ahead, you will teach the model to sort items into Fruit, Animal, and Vehicle bins. This is the same idea behind email filters, image tagging, and medical diagnosis systems.',
@@ -71,12 +82,29 @@ const sectionDetails: Partial<Record<SectionKey, { title: string; text: string }
     text: 'Natural language processing (NLP) helps computers read and understand human language. It can tell whether a sentence is happy, sad, or neutral. In this activity, you will teach the AI to recognize sentiment in text and then try it yourself.',
   },
   regression: {
-    title: 'What is regression?',
-    text: 'Regression is a way for AI to predict a number based on other data. For example, it can estimate test scores from study hours. In this activity, you will add examples, then use the learned line to make a prediction.',
+    title: 'The Concept: Finding the Trend (Supervised Learning)',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: "Imagine you notice that studying for 1 hour usually gets you a 50% on a test, and 2 hours gets you a 60%. What score do you think 3 hours of studying will get you? You'd probably guess 70%, right? Your brain just naturally found a pattern!",
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'An AI does the exact same thing, but it uses math. In AI, this is called Supervised Learning. We act as the supervisor by giving the AI a bunch of real examples (like study hours vs. test scores).',
+      },
+      {
+        heading: 'Drawing the Line',
+        body: 'Once the AI looks at all the examples scattered on a graph, it draws a straight line right through the middle of them. This is called a Trendline.',
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: 'Once the AI has drawn that perfectly angled line, it doesn\'t just know the past—it can predict the future! You can ask it, "What if someone studies for 10 hours?" and it will follow the line to give you an incredibly accurate guess, even if it has never seen a 10-hour example before!',
+      },
+    ],
   },
   clustering: {
-    title: 'What is clustering?',
-    text: 'Clustering groups items that are similar without using labels. It helps AI discover patterns on its own. In this activity, you will assign dots to camps based on their natural groups so the AI can form clusters.',
+    title: 'How clustering works',
+    text: 'Clustering means finding items that are similar and grouping them together in space. In this activity, you will drag icons around and let the AI notice which groups naturally form.',
   },
   dataTypes: {
     title: 'Why data types matter',
@@ -156,6 +184,17 @@ const workflowSteps = [
   '🧪 Test & Evaluate',
 ] as const;
 
+type WorkflowStep = typeof workflowSteps[number];
+type MachineResult = 'idle' | 'running' | 'success' | 'failure';
+
+const workflowCartridgeMeta: Record<WorkflowStep, { icon: string; title: string }> = {
+  '🎯 Define the Problem': { icon: '🎯', title: 'Define the Problem' },
+  '📥 Collect Data': { icon: '📥', title: 'Collect Data' },
+  '🧹 Clean & Prepare Data': { icon: '🧹', title: 'Clean & Prepare Data' },
+  '🏋️ Train the Model': { icon: '🏋️', title: 'Train the Model' },
+  '🧪 Test & Evaluate': { icon: '🧪', title: 'Test & Evaluate' },
+};
+
 const cardStyle: CSSProperties = {
   borderRadius: 28,
   border: '1px solid rgba(255,255,255,0.08)',
@@ -214,6 +253,72 @@ const novaNameStyle: CSSProperties = {
   color: '#4bffa5',
   fontWeight: 900,
   marginBottom: 10,
+};
+
+const novaDetailBackdropStyle: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 90,
+  display: 'grid',
+  placeItems: 'center',
+  padding: 20,
+  background: 'rgba(2, 8, 22, 0.78)',
+  backdropFilter: 'blur(12px)',
+  animation: 'modalFade .22s ease both',
+};
+
+const novaDetailModalStyle: CSSProperties = {
+  position: 'relative',
+  display: 'grid',
+  gap: 20,
+  width: 'min(760px, 100%)',
+  maxHeight: 'min(82vh, 760px)',
+  overflowY: 'auto',
+  borderRadius: 22,
+  border: '1px solid rgba(139, 220, 184, 0.34)',
+  background: 'linear-gradient(145deg, rgba(11, 24, 48, 0.82), rgba(5, 13, 31, 0.92))',
+  boxShadow: '0 32px 100px rgba(0,0,0,.64), 0 0 46px rgba(75,155,255,.16)',
+  color: '#eef7ff',
+  padding: '34px clamp(22px, 4vw, 42px)',
+  textAlign: 'left',
+  fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  animation: 'modalRise .28s cubic-bezier(.16,1,.3,1) both',
+};
+
+const novaDetailCloseStyle: CSSProperties = {
+  position: 'absolute',
+  top: 14,
+  right: 14,
+  width: 38,
+  height: 38,
+  borderRadius: 12,
+  border: '1px solid rgba(255,255,255,.14)',
+  background: 'rgba(255,255,255,.08)',
+  color: '#f7fbff',
+  fontWeight: 900,
+  cursor: 'pointer',
+};
+
+const novaDetailTitleStyle: CSSProperties = {
+  margin: 0,
+  paddingRight: 42,
+  color: '#4bffa5',
+  fontSize: 'clamp(1.45rem, 3vw, 2.15rem)',
+  lineHeight: 1.15,
+};
+
+const novaDetailHeadingStyle: CSSProperties = {
+  margin: '0 0 8px',
+  color: '#9fd9ff',
+  fontSize: '1rem',
+  fontWeight: 900,
+};
+
+const novaDetailBodyStyle: CSSProperties = {
+  margin: 0,
+  color: '#d8eeff',
+  fontSize: '1rem',
+  lineHeight: 1.72,
 };
 
 function clamp(n: number, min = 0, max = 100) {
@@ -333,6 +438,17 @@ function GlobalStyles() {
         color:#4bffa5; font-weight:900; animation: slideUp .4s ease both, readyPulse 1.4s ease infinite;
       }
       .hint { min-height:28px; color:#ffd76a; margin-top:12px; font-weight:800; }
+      .srOnly {
+        position:absolute;
+        width:1px;
+        height:1px;
+        padding:0;
+        margin:-1px;
+        overflow:hidden;
+        clip:rect(0,0,0,0);
+        white-space:nowrap;
+        border:0;
+      }
       .map { display:grid; gap:8px; margin-top:12px; }
       .map button {
         width:100%; display:grid; grid-template-columns:24px 1fr auto; gap:8px; align-items:center;
@@ -385,6 +501,99 @@ function GlobalStyles() {
       }
       .camera.calibrated .scanLine {
         top:50%; animation:calibratedLine 1.15s ease-in-out infinite; transform:translateY(-50%);
+      }
+      .clusterShell {
+        height:min(670px, calc(100vh - 108px));
+        max-height:670px;
+        overflow:hidden;
+        display:grid;
+        grid-template-rows:auto minmax(0, 1fr);
+        gap:12px;
+        margin:-6px;
+      }
+      .clusterMissionText {
+        display:grid;
+        gap:4px;
+        padding:0 4px;
+      }
+      .clusterMissionText h2 {
+        margin:0;
+        font-size:clamp(1.28rem, 2.2vw, 2rem);
+        line-height:1.08;
+      }
+      .clusterMissionText p {
+        margin:0;
+        color:#d8e9ff;
+        font-weight:800;
+        line-height:1.35;
+      }
+      .clusterBoardWrap {
+        min-height:0;
+        display:grid;
+        grid-template-rows:minmax(0, 1fr) auto;
+        border-radius:18px;
+        overflow:hidden;
+        border:1px solid rgba(104, 187, 255, .18);
+        background:
+          radial-gradient(circle at 18% 18%, rgba(75,155,255,.2), transparent 26%),
+          radial-gradient(circle at 78% 72%, rgba(75,255,165,.12), transparent 28%),
+          linear-gradient(135deg, #061327 0%, #0a1d36 58%, #06101f 100%);
+        box-shadow:inset 0 0 90px rgba(75,155,255,.11), 0 18px 52px rgba(0,0,0,.36);
+      }
+      .clusterBoard {
+        display:block;
+        width:100%;
+        height:100%;
+        min-height:0;
+        touch-action:none;
+        background:transparent;
+      }
+      .clusterControlBar {
+        min-height:72px;
+        display:flex;
+        align-items:center;
+        gap:10px;
+        padding:10px 12px;
+        background:rgba(3, 12, 24, .78);
+        border-top:1px solid rgba(255,255,255,.08);
+        backdrop-filter:blur(14px);
+      }
+      .clusterControlBar button {
+        white-space:nowrap;
+      }
+      .clusterMessage {
+        flex:1;
+        min-width:160px;
+        color:#d5e8ff;
+        font-weight:900;
+        line-height:1.25;
+      }
+      .clusterMessage.success { color:#84ffb7; }
+      .clusterMessage.failure { color:#ffd0d8; }
+      .clusterNode {
+        user-select:none;
+        transition:filter .16s ease;
+      }
+      .clusterNode.dragging {
+        filter:drop-shadow(0 0 24px rgba(255,255,255,.32));
+      }
+      .clusterMistake {
+        animation:clusterGlitchShake .38s steps(2, end) 2;
+      }
+      .clusterPulseBoundary {
+        transform-origin:center;
+        animation:clusterBoundaryPulse 1.15s ease-in-out infinite;
+      }
+      @keyframes clusterBoundaryPulse {
+        0%,100% { stroke-opacity:.7; filter:drop-shadow(0 0 5px currentColor); }
+        50% { stroke-opacity:1; filter:drop-shadow(0 0 18px currentColor); }
+      }
+      @keyframes clusterGlitchShake {
+        0%,100% { transform:translate(0,0); filter:drop-shadow(0 0 0 #ff4f68); }
+        20% { transform:translate(-9px,2px); filter:drop-shadow(4px 0 0 #4b9bff); }
+        40% { transform:translate(8px,-2px); filter:drop-shadow(-4px 0 0 #5efc82); }
+        60% { transform:translate(-6px,1px); filter:drop-shadow(4px 0 0 #ff4f68); }
+        80% { transform:translate(6px,-1px); filter:drop-shadow(-4px 0 0 #ffd76a); }
       }
       .camera.calibrated .scanLine::before { height:210px; opacity:.55; }
       .calibratedText {
@@ -447,6 +656,17 @@ function GlobalStyles() {
       .chatBubble {
         max-width:760px; padding:18px 20px; border-radius:24px 24px 24px 8px;
         background:rgba(75,155,255,.14); border:1px solid rgba(75,155,255,.22); line-height:1.55;
+      }
+      .typewriterCursor {
+        display:inline-block;
+        margin-left:3px;
+        color:#4bffa5;
+        font-weight:900;
+        animation:cursorBlink .82s steps(1,end) infinite;
+      }
+      @keyframes cursorBlink {
+        0%, 48% { opacity:1; }
+        49%, 100% { opacity:0; }
       }
       .svgBox { width:100%; max-width:460px; height:auto; border-radius:22px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); }
       input[type="range"] { width:100%; accent-color:#4bffa5; min-height:48px; }
@@ -635,6 +855,279 @@ function GlobalStyles() {
         color:#d8eeff;
         line-height:1.65;
       }
+      .pipelineShell {
+        height:min(640px, calc(100vh - 138px));
+        min-height:520px;
+        overflow:hidden;
+        display:grid;
+        grid-template-columns:minmax(360px, 1.35fr) minmax(260px, .85fr);
+        gap:16px;
+        padding:16px;
+        border-radius:22px;
+        border:1px solid rgba(90,177,255,.2);
+        background:#07162a;
+      }
+      .pipelineBlueprint,
+      .cartridgeBay {
+        min-height:0;
+        overflow:hidden;
+        border-radius:18px;
+        border:1px solid rgba(255,255,255,.09);
+        background:rgba(3,10,22,.42);
+      }
+      .pipelineBlueprint {
+        position:relative;
+        display:grid;
+        grid-template-columns:74px minmax(0, 1fr);
+        gap:16px;
+        padding:16px;
+      }
+      .machineRail {
+        position:relative;
+        display:grid;
+        place-items:center;
+      }
+      .machineRail::before {
+        content:'';
+        position:absolute;
+        top:34px;
+        bottom:34px;
+        width:8px;
+        border-radius:0;
+        background:#102642;
+        border:1px solid rgba(117,214,255,.2);
+      }
+      .machineRail.online::before {
+        background:#3df49a;
+        border-color:rgba(75,255,165,.8);
+      }
+      .energyPulse {
+        position:absolute;
+        left:50%;
+        width:8px;
+        height:70px;
+        border-radius:0;
+        background:#75d6ff;
+        box-shadow:0 0 14px rgba(117,214,255,.9), 0 0 28px rgba(117,214,255,.42);
+        z-index:2;
+      }
+      .pipelineDocks {
+        position:relative;
+        display:grid;
+        grid-template-rows:repeat(5, minmax(0, 1fr));
+        gap:10px;
+        min-height:0;
+      }
+      .pipelineDock {
+        position:relative;
+        display:grid;
+        grid-template-columns:48px minmax(0, 1fr);
+        align-items:center;
+        gap:12px;
+        min-height:0;
+        padding:9px 10px;
+        border-radius:16px;
+        border:1px solid rgba(112,174,255,.22);
+        background:#0b1a31;
+        cursor:pointer;
+      }
+      .pipelineDock::before {
+        content:'';
+        position:absolute;
+        left:-43px;
+        width:44px;
+        height:8px;
+        border-radius:0;
+        background:#102642;
+        border:1px solid rgba(112,174,255,.18);
+      }
+      .pipelineDock.ready {
+        border-color:rgba(117,214,255,.86);
+        background:#12345a;
+      }
+      .pipelineDock.checkpoint {
+        border-color:rgba(117,214,255,.95);
+        background:#15537a;
+      }
+      .pipelineDock.jammed {
+        border-color:rgba(255,104,81,.95);
+        background:#51201f;
+      }
+      .pipelineDock.online {
+        border-color:rgba(75,255,165,.82);
+        background:#0f3a2d;
+      }
+      .dockNumber {
+        width:40px;
+        height:40px;
+        border-radius:12px;
+        display:grid;
+        place-items:center;
+        color:#07101e;
+        font-weight:900;
+        background:#75d6ff;
+        border:1px solid rgba(255,255,255,.12);
+      }
+      .dockEmpty {
+        color:#7692b5;
+        font-weight:900;
+        text-transform:uppercase;
+        font-size:.8rem;
+        letter-spacing:.08em;
+      }
+      .cartridge {
+        width:100%;
+        min-height:62px;
+        display:grid;
+        grid-template-columns:48px minmax(0, 1fr);
+        align-items:center;
+        gap:10px;
+        border:1px solid rgba(139,205,255,.22);
+        border-radius:14px;
+        padding:8px 10px;
+        color:#f7fbff;
+        text-align:left;
+        cursor:grab;
+        user-select:none;
+        background:#185a9d;
+      }
+      .cartridge:active {
+        cursor:grabbing;
+        background:#206dbb;
+        border-color:rgba(117,214,255,.95);
+      }
+      .cartridge.selected {
+        border-color:rgba(75,255,165,.8);
+        background:#176f5a;
+      }
+      .cartridge.dragging {
+        border-color:rgba(117,214,255,.95);
+        background:#206dbb;
+      }
+      .cartridge.lit {
+        border-color:rgba(117,214,255,.95);
+        background:#1f78c8;
+      }
+      .cartridgeIcon {
+        width:44px;
+        height:44px;
+        border-radius:12px;
+        display:grid;
+        place-items:center;
+        font-size:1.65rem;
+        background:rgba(7,16,31,.42);
+        border:1px solid rgba(255,255,255,.12);
+      }
+      .cartridgeText strong {
+        display:block;
+        font-size:.95rem;
+        line-height:1.12;
+      }
+      .cartridgeBay {
+        display:grid;
+        grid-template-rows:auto minmax(0, 1fr) auto;
+        gap:12px;
+        padding:16px;
+      }
+      .cartridgeBay h3 {
+        margin:0;
+        font-size:1rem;
+      }
+      .cartridgeRack {
+        min-height:0;
+        display:grid;
+        align-content:start;
+        gap:10px;
+      }
+      .machineControls {
+        display:grid;
+        gap:10px;
+      }
+      .machineStatus {
+        min-height:44px;
+        color:#d8eeff;
+        font-weight:900;
+        line-height:1.25;
+      }
+      .machineButton {
+        min-height:48px;
+        min-width:48px;
+        border-radius:12px;
+        border:1px solid rgba(255,255,255,.14);
+        background:#4b9bff;
+        color:#03151e;
+        cursor:pointer;
+        font-weight:900;
+        padding:14px 22px;
+      }
+      .machineButton:hover:not(:disabled) {
+        background:#75d6ff;
+        border-color:rgba(255,255,255,.24);
+      }
+      .machineButton:disabled {
+        cursor:not-allowed;
+        background:#27415f;
+        color:#9db9d8;
+        border-color:rgba(255,255,255,.08);
+      }
+      .jamTooltip {
+        position:absolute;
+        right:16px;
+        max-width:min(330px, 48%);
+        z-index:5;
+        padding:12px 14px;
+        border-radius:14px;
+        background:rgba(48,16,18,.98);
+        border:1px solid rgba(255,118,86,.68);
+        color:#ffe6d3;
+        font-weight:900;
+      }
+      .jamTooltip::before {
+        content:'';
+        position:absolute;
+        left:-9px;
+        top:18px;
+        width:16px;
+        height:16px;
+        transform:rotate(45deg);
+        background:inherit;
+        border-left:1px solid rgba(255,118,86,.68);
+        border-bottom:1px solid rgba(255,118,86,.68);
+      }
+      .sparkField {
+        position:absolute;
+        inset:0;
+        pointer-events:none;
+        overflow:hidden;
+        border-radius:inherit;
+      }
+      .sparkField i {
+        position:absolute;
+        left:18%;
+        top:50%;
+        width:38px;
+        height:3px;
+        border-radius:999px;
+        background:#ffd76a;
+        box-shadow:0 0 16px #ff604d;
+        transform:rotate(var(--spark-rotate)) translateX(var(--spark-distance));
+        animation:sparkBurst .44s ease-out both;
+      }
+      .successPanel {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        margin-top:10px;
+        padding:12px 14px;
+        border-radius:16px;
+        border:1px solid rgba(75,255,165,.38);
+        background:rgba(75,255,165,.1);
+      }
+      @keyframes sparkBurst {
+        from { opacity:1; transform:rotate(var(--spark-rotate)) translateX(0) scaleX(.45); }
+        to { opacity:0; transform:rotate(var(--spark-rotate)) translateX(var(--spark-distance)) scaleX(1.2); }
+      }
       .shake { animation:shake .42s ease; }
       .celebrate { animation:celebrate .45s ease; }
       .timer span { animation:timerRun 15s linear forwards; }
@@ -708,11 +1201,22 @@ function GlobalStyles() {
       @keyframes routeFruit { to { transform:translate(-34vw, 238px) scale(.32); opacity:.08; } }
       @keyframes routeAnimal { to { transform:translate(0, 238px) scale(.32); opacity:.08; } }
       @keyframes routeVehicle { to { transform:translate(34vw, 238px) scale(.32); opacity:.08; } }
+      .sorter-mistake { animation: sorterShake .42s ease-in-out 2; transform-box: fill-box; transform-origin: center; }
+      @keyframes sorterShake {
+        0%,100% { transform: translateX(0); }
+        20% { transform: translateX(-7px); }
+        40% { transform: translateX(7px); }
+        60% { transform: translateX(-5px); }
+        80% { transform: translateX(5px); }
+      }
       @media (max-width: 920px) {
         .app { grid-template-columns:1fr; }
         .sidebar { position:relative; height:auto; }
         .content { padding:14px; }
         .stage { min-height:70vh; padding:18px; border-radius:24px; }
+        .pipelineShell { height:auto; min-height:0; grid-template-columns:1fr; overflow:visible; }
+        .pipelineBlueprint { min-height:470px; }
+        .jamTooltip { max-width:calc(100% - 32px); }
         .cols2, .cols3, .cols4 { grid-template-columns:1fr; }
         .sectionHead { display:block; }
         .testing-card-icon { font-size:5.3rem; }
@@ -736,7 +1240,7 @@ function NovaGate({
   onDone?: () => void;
   askName?: boolean;
   onNameSubmit?: (name: string) => void;
-  detail?: { title: string; text: string };
+  detail?: SectionDetail;
 }) {
   const [idx, setIdx] = useState(0);
   const [text, setText] = useState('');
@@ -801,7 +1305,7 @@ function NovaGate({
       }
       setText(currentLine.slice(0, i + 1));
       i += 1;
-    }, 75);
+    }, 30);
     return () => window.clearInterval(t);
   }, [idx, lineKey, lines]);
 
@@ -815,12 +1319,6 @@ function NovaGate({
             {text}
             <span style={{ animation: 'blink 0.9s step-end infinite', color: '#4bffa5' }}>▌</span>
           </p>
-          {showDetail && detail && (
-            <div style={{ marginTop: 18, color: '#c7d8f0', fontSize: '0.98rem', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
-              <strong>{detail.title}</strong>
-              <p style={{ margin: '12px 0 0' }}>{detail.text}</p>
-            </div>
-          )}
           {askName && done && (
             <div style={{ marginTop: 18, display: 'grid', gap: 12 }}>
               <input
@@ -842,24 +1340,65 @@ function NovaGate({
             </div>
           )}
         </div>
-        {!askName && done && (
+        {!askName && (
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {detail && !showDetail && (
+            {detail && (
               <button
-                style={{ ...ghostBtn, minWidth: 'auto', padding: '13px 22px' }}
+                style={{ ...ghostBtn, minWidth: 'auto', padding: '13px 22px', opacity: done ? 1 : 0.5, cursor: done ? 'pointer' : 'not-allowed' }}
                 onClick={() => setShowDetail(true)}
+                disabled={!done}
               >
                 Read in detail about the concept
               </button>
             )}
             {onDone && (
-              <button style={primaryBtn} onClick={onDone}>
-                {showDetail ? 'Continue' : "Let's Go →"}
+              <button
+                style={{ ...primaryBtn, opacity: done ? 1 : 0.5, cursor: done ? 'pointer' : 'not-allowed' }}
+                onClick={onDone}
+                disabled={!done}
+              >
+                Let's Go →
               </button>
             )}
           </div>
         )}
       </div>
+      {showDetail && detail && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="nova-detail-title"
+          style={novaDetailBackdropStyle}
+          onClick={() => setShowDetail(false)}
+        >
+          <div style={novaDetailModalStyle} onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              aria-label="Close concept details"
+              style={novaDetailCloseStyle}
+              onClick={() => setShowDetail(false)}
+            >
+              X
+            </button>
+            <h2 id="nova-detail-title" style={novaDetailTitleStyle}>{detail.title}</h2>
+            {detail.sections ? (
+              <div style={{ display: 'grid', gap: 18 }}>
+                {detail.sections.map((section) => (
+                  <section key={section.heading}>
+                    <h3 style={novaDetailHeadingStyle}>{section.heading}</h3>
+                    <p style={novaDetailBodyStyle}>{section.body}</p>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <p style={novaDetailBodyStyle}>{detail.text}</p>
+            )}
+            <button type="button" style={{ ...primaryBtn, justifySelf: 'start', marginTop: 8 }} onClick={() => setShowDetail(false)}>
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1513,16 +2052,42 @@ function NLPSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [hint, setHint] = useState('');
   const [demo, setDemo] = useState('');
   const [shake, setShake] = useState(false);
+  const [typedText, setTypedText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+
+  const done = index >= sentimentMessages.length;
+  const current = sentimentMessages[index];
+
+  useEffect(() => {
+    if (!gateOpen || done || !current) {
+      setTypedText('');
+      setIsTyping(false);
+      return;
+    }
+
+    setTypedText('');
+    setIsTyping(true);
+
+    let nextLength = 0;
+    const typingInterval = window.setInterval(() => {
+      nextLength += 1;
+      setTypedText(current.text.slice(0, nextLength));
+
+      if (nextLength >= current.text.length) {
+        window.clearInterval(typingInterval);
+        setIsTyping(false);
+      }
+    }, 38);
+
+    return () => window.clearInterval(typingInterval);
+  }, [current, done, gateOpen]);
 
   if (!gateOpen) {
     return <NovaGate lines={['Language Harbor is full of scrambled messages.', 'Tag the feeling in each sentence and train the NLP beacon.']} detail={sectionDetails.nlp} onDone={() => setGateOpen(true)} />;
   }
 
-  const done = index >= sentimentMessages.length;
-  const current = sentimentMessages[index];
-
   function choose(sentiment: Sentiment) {
-    if (!current) return;
+    if (!current || isTyping) return;
     if (sentiment === current.sentiment) {
       playSound('click');
       setConfidence(index + 1 === sentimentMessages.length ? 100 : confidence + 10);
@@ -1559,10 +2124,14 @@ function NLPSection({ onComplete }: { onComplete: CompleteHandler }) {
           </>
         ) : (
           <>
-            <div className={`chatBubble ${shake ? 'shake' : ''}`}>{current.text}</div>
+            <div className={`chatBubble ${shake ? 'shake' : ''}`}>
+              <span className="srOnly">{current.text}</span>
+              <span aria-hidden="true">{typedText}</span>
+              <span className="typewriterCursor" aria-hidden="true">|</span>
+            </div>
             <div className="grid cols3">
               {(['Positive', 'Neutral', 'Negative'] as const).map((sentiment) => (
-                <button key={sentiment} style={ghostBtn} onClick={() => choose(sentiment)}>
+                <button key={sentiment} style={ghostBtn} onClick={() => choose(sentiment)} disabled={isTyping}>
                   {sentiment === 'Positive' ? '😊' : sentiment === 'Neutral' ? '😐' : '😠'} {sentiment}
                 </button>
               ))}
@@ -1589,7 +2158,7 @@ function RegressionSection({ onComplete }: { onComplete: CompleteHandler }) {
   if (!gateOpen) {
     return (
       <NovaGate
-        lines={['The Neural Prediction Terminal is online.', 'Add study-hours examples to teach the AI the hidden relationship.']}
+        lines={[regressionBriefing]}
         detail={sectionDetails.regression}
         onDone={() => setGateOpen(true)}
       />
@@ -1604,7 +2173,611 @@ function RegressionSection({ onComplete }: { onComplete: CompleteHandler }) {
   );
 }
 
+type Point = { x: number; y: number };
+type ClusterGroup = 'animal' | 'fruit' | 'vehicle';
+type ClusterStatus = 'playing' | 'success' | 'failure';
+type ClusterDot = { id: string; icon: string; label: string; x: number; y: number; group: ClusterGroup };
+type ClusterNode = ClusterDot & { radius: number; vx?: number; vy?: number; fx?: number | null; fy?: number | null; index?: number };
+type ClusterComponent = { id: number; nodes: ClusterNode[]; pure: boolean; group: ClusterGroup | 'mixed'; color: string };
+
+const CLUSTER_FIELD_WIDTH = 940;
+const CLUSTER_FIELD_HEIGHT = 430;
+const CLUSTER_NODE_RADIUS = 34;
+const CLUSTER_ICON_WIDTH = CLUSTER_NODE_RADIUS * 2;
+const CLUSTER_WALL_PADDING = CLUSTER_NODE_RADIUS + 4;
+const CLUSTER_SNAP_RADIUS = 156;
+const CLUSTER_LINK_DISTANCE = CLUSTER_SNAP_RADIUS;
+const CLUSTER_VERIFY_DISTANCE = 120;
+const CLUSTER_VERIFY_TOLERANCE = 8;
+const CLUSTER_VERIFY_RADIUS = CLUSTER_VERIFY_DISTANCE + CLUSTER_VERIFY_TOLERANCE;
+const CLUSTER_MIXED_REPEL_RADIUS = 146;
+const CLUSTER_INITIAL_HINT = 'Drag similar items together into groups. Matching items gently pull together; different kinds bounce apart.';
+const clusterGroups: ClusterGroup[] = ['animal', 'fruit', 'vehicle'];
+const successClusterColors: Record<ClusterGroup, string> = { animal: '#ff6464', fruit: '#5efc82', vehicle: '#4b9bff' };
+const clusterLabels: Record<ClusterGroup, string> = { animal: 'Animals', fruit: 'Fruits', vehicle: 'Vehicles' };
+
+const clusteringDots: ClusterDot[] = [
+  { id: 'cat', icon: '🐱', label: 'Cat', x: 86, y: 74, group: 'animal' },
+  { id: 'dog', icon: '🐶', label: 'Dog', x: 782, y: 106, group: 'animal' },
+  { id: 'lion', icon: '🦁', label: 'Lion', x: 418, y: 74, group: 'animal' },
+  { id: 'frog', icon: '🐸', label: 'Frog', x: 226, y: 304, group: 'animal' },
+  { id: 'apple', icon: '🍎', label: 'Apple', x: 228, y: 112, group: 'fruit' },
+  { id: 'banana', icon: '🍌', label: 'Banana', x: 846, y: 320, group: 'fruit' },
+  { id: 'grapes', icon: '🍇', label: 'Grapes', x: 520, y: 344, group: 'fruit' },
+  { id: 'orange', icon: '🍊', label: 'Orange', x: 646, y: 86, group: 'fruit' },
+  { id: 'car', icon: '🚗', label: 'Car', x: 706, y: 222, group: 'vehicle' },
+  { id: 'train', icon: '🚆', label: 'Train', x: 354, y: 246, group: 'vehicle' },
+  { id: 'rocket', icon: '🚀', label: 'Rocket', x: 112, y: 372, group: 'vehicle' },
+  { id: 'plane', icon: '✈️', label: 'Plane', x: 542, y: 178, group: 'vehicle' },
+];
+
+const successClusterCenters: Record<ClusterGroup, Point> = {
+  animal: { x: 230, y: 222 },
+  fruit: { x: 470, y: 222 },
+  vehicle: { x: 710, y: 222 },
+};
+
+function makeClusterNodes() {
+  return clusteringDots.map((dot) => ({ ...dot, radius: CLUSTER_NODE_RADIUS, vx: 0, vy: 0 }));
+}
+
+function makeScatteredClusterNodes() {
+  const columns = 4;
+  const xGap = (CLUSTER_FIELD_WIDTH - CLUSTER_WALL_PADDING * 2) / (columns - 1);
+  const yGap = (CLUSTER_FIELD_HEIGHT - CLUSTER_WALL_PADDING * 2) / 2;
+  return clusteringDots.map((dot, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const jitterX = (Math.random() - 0.5) * 58;
+    const jitterY = (Math.random() - 0.5) * 48;
+    return {
+      ...dot,
+      radius: CLUSTER_NODE_RADIUS,
+      x: clamp(CLUSTER_WALL_PADDING + column * xGap + jitterX, CLUSTER_WALL_PADDING, CLUSTER_FIELD_WIDTH - CLUSTER_WALL_PADDING),
+      y: clamp(CLUSTER_WALL_PADDING + row * yGap + jitterY, CLUSTER_WALL_PADDING, CLUSTER_FIELD_HEIGHT - CLUSTER_WALL_PADDING),
+      vx: 0,
+      vy: 0,
+      fx: null,
+      fy: null,
+    };
+  });
+}
+
+function getClusterComponents(nodes: ClusterNode[], distance = CLUSTER_VERIFY_DISTANCE) {
+  const visited = new Set<string>();
+  const components: ClusterNode[][] = [];
+  nodes.forEach((node) => {
+    if (visited.has(node.id)) return;
+    const queue = [node];
+    const component: ClusterNode[] = [];
+    visited.add(node.id);
+    while (queue.length) {
+      const current = queue.shift()!;
+      component.push(current);
+      nodes.forEach((candidate) => {
+        if (visited.has(candidate.id)) return;
+        const dist = Math.hypot((current.x ?? 0) - (candidate.x ?? 0), (current.y ?? 0) - (candidate.y ?? 0));
+        if (dist <= distance) {
+          visited.add(candidate.id);
+          queue.push(candidate);
+        }
+      });
+    }
+    components.push(component);
+  });
+  return components;
+}
+
+function decorateClusterComponents(components: ClusterNode[][]): ClusterComponent[] {
+  return components
+    .filter((component) => component.length > 1)
+    .map((nodes, id) => {
+      const firstGroup = nodes[0].group;
+      const pure = nodes.every((node) => node.group === firstGroup);
+      return { id, nodes, pure, group: pure ? firstGroup : 'mixed', color: pure ? successClusterColors[firstGroup] : '#ff4f68' };
+    });
+}
+
+function getLinkedPairs(nodes: ClusterNode[]) {
+  const pairs: { a: ClusterNode; b: ClusterNode }[] = [];
+  nodes.forEach((a, index) => {
+    nodes.slice(index + 1).forEach((b) => {
+      const distance = Math.hypot((a.x ?? 0) - (b.x ?? 0), (a.y ?? 0) - (b.y ?? 0));
+      if (a.group === b.group && distance <= CLUSTER_LINK_DISTANCE) pairs.push({ a, b });
+    });
+  });
+  return pairs;
+}
+
+function getComponentMistakes(components: ClusterNode[][]) {
+  const mistakes = new Set<string>();
+  components.forEach((component) => {
+    if (component.length <= 1) return;
+    const counts = clusterGroups.map((group) => ({ group, count: component.filter((node) => node.group === group).length }));
+    const main = counts.reduce((best, current) => (current.count > best.count ? current : best), counts[0]);
+    component.filter((node) => node.group !== main.group).forEach((node) => mistakes.add(node.id));
+  });
+  return mistakes;
+}
+
+function cloneClusterSnapshot(nodes: ClusterNode[]) {
+  return nodes.map((node) => ({
+    ...node,
+    x: node.x ?? 0,
+    y: node.y ?? 0,
+    vx: 0,
+    vy: 0,
+    fx: null,
+    fy: null,
+  }));
+}
+
+function hasCorrectClusters(components: ClusterNode[][]) {
+  const groupedComponents = components.filter((component) => component.length > 1);
+  if (groupedComponents.length !== 3) return false;
+  const found = new Set<ClusterGroup>();
+  return groupedComponents.every((component) => {
+    if (component.length !== 4) return false;
+    const group = component[0].group;
+    const pure = component.every((node) => node.group === group);
+    if (pure) found.add(group);
+    return pure;
+  }) && found.size === 3;
+}
+
+function hasCorrectClusterLayout(nodes: ClusterNode[]) {
+  const components = getClusterComponents(nodes, CLUSTER_VERIFY_RADIUS);
+  if (!hasCorrectClusters(components)) return false;
+
+  return clusterGroups.every((group) => {
+    const groupNodes = nodes.filter((node) => node.group === group);
+    return groupNodes.length === 4 && groupNodes.every((node) => {
+      const nearbySameGroupNodes = groupNodes.filter((candidate) => {
+        if (candidate.id === node.id) return false;
+        const distance = Math.hypot((node.x ?? 0) - (candidate.x ?? 0), (node.y ?? 0) - (candidate.y ?? 0));
+        return distance <= CLUSTER_VERIFY_RADIUS;
+      });
+      return nearbySameGroupNodes.length > 0;
+    });
+  });
+}
+
+function computeSuccessTargets() {
+  const targets: Record<string, Point> = {};
+  clusterGroups.forEach((group) => {
+    const groupNodes = clusteringDots.filter((dot) => dot.group === group);
+    const center = successClusterCenters[group];
+    groupNodes.forEach((dot, index) => {
+      const angle = (Math.PI * 2 * index) / groupNodes.length - Math.PI / 2;
+      const ring = index === 0 ? 0 : CLUSTER_ICON_WIDTH;
+      targets[dot.id] = { x: center.x + Math.cos(angle) * ring, y: center.y + Math.sin(angle) * ring };
+    });
+  });
+  return targets;
+}
+
+function getSameGroupCluster(nodes: ClusterNode[], rootId: string) {
+  const root = nodes.find((node) => node.id === rootId);
+  if (!root) return [];
+  const visited = new Set<string>([root.id]);
+  const queue = [root];
+  const cluster: ClusterNode[] = [];
+  while (queue.length) {
+    const current = queue.shift()!;
+    cluster.push(current);
+    nodes.forEach((candidate) => {
+      if (visited.has(candidate.id) || candidate.group !== root.group) return;
+      const distance = Math.hypot((current.x ?? 0) - (candidate.x ?? 0), (current.y ?? 0) - (candidate.y ?? 0));
+      if (distance <= CLUSTER_LINK_DISTANCE) {
+        visited.add(candidate.id);
+        queue.push(candidate);
+      }
+    });
+  }
+  return cluster;
+}
+
+function clusteringMagnetForce(targetsRef: MutableRefObject<Record<string, Point> | null>) {
+  let nodes: ClusterNode[] = [];
+  function force(alpha: number) {
+    const targets = targetsRef.current;
+    nodes.forEach((node, index) => {
+      if (!targets) {
+        node.vx = (node.vx ?? 0) + Math.sin(Date.now() * 0.0007 + index) * 0.0008;
+        node.vy = (node.vy ?? 0) + Math.cos(Date.now() * 0.0006 + index * 1.7) * 0.0008;
+      } else {
+        const target = targets[node.id];
+        if (target) {
+          node.vx = (node.vx ?? 0) + (target.x - (node.x ?? 0)) * 0.18 * alpha;
+          node.vy = (node.vy ?? 0) + (target.y - (node.y ?? 0)) * 0.18 * alpha;
+        }
+      }
+    });
+
+    for (let i = 0; i < nodes.length; i += 1) {
+      for (let j = i + 1; j < nodes.length; j += 1) {
+        const a = nodes[i];
+        const b = nodes[j];
+        const dx = (b.x ?? 0) - (a.x ?? 0);
+        const dy = (b.y ?? 0) - (a.y ?? 0);
+        const distance = Math.max(1, Math.hypot(dx, dy));
+        const nx = dx / distance;
+        const ny = dy / distance;
+        if (a.group === b.group && distance < CLUSTER_SNAP_RADIUS) {
+          const correction = (distance - CLUSTER_ICON_WIDTH) * 0.38 * alpha;
+          if (a.fx == null) {
+            a.x = (a.x ?? 0) + nx * correction;
+            a.y = (a.y ?? 0) + ny * correction;
+          }
+          if (b.fx == null) {
+            b.x = (b.x ?? 0) - nx * correction;
+            b.y = (b.y ?? 0) - ny * correction;
+          }
+          const pull = (distance - CLUSTER_ICON_WIDTH) * 0.22 * alpha;
+          a.vx = ((a.vx ?? 0) + nx * pull) * 0.62;
+          a.vy = ((a.vy ?? 0) + ny * pull) * 0.62;
+          b.vx = ((b.vx ?? 0) - nx * pull) * 0.62;
+          b.vy = ((b.vy ?? 0) - ny * pull) * 0.62;
+        }
+        if (a.group !== b.group && distance < CLUSTER_MIXED_REPEL_RADIUS) {
+          const push = (CLUSTER_MIXED_REPEL_RADIUS - distance) * 0.11 * alpha;
+          a.vx = (a.vx ?? 0) - nx * push;
+          a.vy = (a.vy ?? 0) - ny * push;
+          b.vx = (b.vx ?? 0) + nx * push;
+          b.vy = (b.vy ?? 0) + ny * push;
+        }
+      }
+    }
+  }
+  force.initialize = (newNodes: ClusterNode[]) => { nodes = newNodes; };
+  return force;
+}
+
+function bounceClusterNodeOffWalls(node: ClusterNode) {
+  const minX = CLUSTER_WALL_PADDING;
+  const maxX = CLUSTER_FIELD_WIDTH - CLUSTER_WALL_PADDING;
+  const minY = CLUSTER_WALL_PADDING;
+  const maxY = CLUSTER_FIELD_HEIGHT - CLUSTER_WALL_PADDING;
+  const bounce = 0.46;
+
+  if ((node.x ?? 0) < minX) {
+    node.x = minX;
+    node.vx = Math.abs(node.vx ?? 0) * bounce;
+  } else if ((node.x ?? 0) > maxX) {
+    node.x = maxX;
+    node.vx = -Math.abs(node.vx ?? 0) * bounce;
+  }
+
+  if ((node.y ?? 0) < minY) {
+    node.y = minY;
+    node.vy = Math.abs(node.vy ?? 0) * bounce;
+  } else if ((node.y ?? 0) > maxY) {
+    node.y = maxY;
+    node.vy = -Math.abs(node.vy ?? 0) * bounce;
+  }
+}
+
 function ClusteringSection({ onComplete }: { onComplete: CompleteHandler }) {
+  const [gateOpen, setGateOpen] = useState(false);
+  const [nodes, setNodes] = useState<ClusterNode[]>(() => makeClusterNodes());
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [hint, setHint] = useState(CLUSTER_INITIAL_HINT);
+  const [status, setStatus] = useState<ClusterStatus>('playing');
+  const [mistakeIds, setMistakeIds] = useState<Set<string>>(new Set());
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const nodesRef = useRef<ClusterNode[]>([]);
+  const simulationRef = useRef<Simulation<ClusterNode, undefined> | null>(null);
+  const targetsRef = useRef<Record<string, Point> | null>(null);
+  const dragClusterOffsetsRef = useRef<{ node: ClusterNode; dx: number; dy: number }[]>([]);
+
+  useEffect(() => {
+    if (!gateOpen) return;
+    const liveNodes = makeClusterNodes();
+    nodesRef.current = liveNodes;
+    const simulation = forceSimulation<ClusterNode>(liveNodes)
+      .alpha(0.92)
+      .alphaDecay(0.055)
+      .alphaMin(0.004)
+      .velocityDecay(0.72)
+      .force('charge', forceManyBody<ClusterNode>().strength(-10))
+      .force('collide', forceCollide<ClusterNode>().radius((node) => node.radius + 3).strength(1).iterations(8))
+      .force('x', forceX<ClusterNode>(CLUSTER_FIELD_WIDTH / 2).strength(0.0008))
+      .force('y', forceY<ClusterNode>(CLUSTER_FIELD_HEIGHT / 2).strength(0.0008))
+      .force('magnet', clusteringMagnetForce(targetsRef))
+      .on('tick', () => {
+        liveNodes.forEach(bounceClusterNodeOffWalls);
+        setNodes(liveNodes.map((node) => ({ ...node })));
+      });
+    simulationRef.current = simulation;
+    return () => {
+      simulation.stop();
+    };
+  }, [gateOpen]);
+
+  const components = useMemo(() => getClusterComponents(nodes), [nodes]);
+  const visibleComponents = useMemo(() => decorateClusterComponents(components), [components]);
+  const linkedPairs = useMemo(() => getLinkedPairs(nodes), [nodes]);
+
+  if (!gateOpen) {
+    return <NovaGate lines={['The AI Smart Sorter found a messy room.', 'Drag similar items together so natural clusters appear.']} detail={sectionDetails.clustering} onDone={() => setGateOpen(true)} />;
+  }
+
+  function getSvgPoint(event: PointerEvent<Element>) {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: clamp(((event.clientX - rect.left) / rect.width) * CLUSTER_FIELD_WIDTH, CLUSTER_WALL_PADDING, CLUSTER_FIELD_WIDTH - CLUSTER_WALL_PADDING),
+      y: clamp(((event.clientY - rect.top) / rect.height) * CLUSTER_FIELD_HEIGHT, CLUSTER_WALL_PADDING, CLUSTER_FIELD_HEIGHT - CLUSTER_WALL_PADDING),
+    };
+  }
+
+  function clearFeedback() {
+    if (status !== 'playing') setStatus('playing');
+    if (mistakeIds.size) setMistakeIds(new Set());
+  }
+
+  function clearValidationState(nextHint = CLUSTER_INITIAL_HINT) {
+    setStatus('playing');
+    setMistakeIds(new Set());
+    setHint(nextHint);
+  }
+
+  function handlePointerDown(id: string, event: PointerEvent<SVGGElement>) {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    clearFeedback();
+    setDraggingId(id);
+    const point = getSvgPoint(event);
+    const node = nodesRef.current.find((item) => item.id === id);
+    if (node && point) {
+      const dragCluster = getSameGroupCluster(nodesRef.current, id);
+      dragClusterOffsetsRef.current = dragCluster.map((clusterNode) => ({
+        node: clusterNode,
+        dx: (clusterNode.x ?? point.x) - (node.x ?? point.x),
+        dy: (clusterNode.y ?? point.y) - (node.y ?? point.y),
+      }));
+      dragClusterOffsetsRef.current.forEach(({ node: clusterNode, dx, dy }) => {
+        clusterNode.fx = point.x + dx;
+        clusterNode.fy = point.y + dy;
+        clusterNode.vx = 0;
+        clusterNode.vy = 0;
+      });
+    }
+    simulationRef.current?.alphaTarget(0.24).restart();
+    playSound('click');
+  }
+
+  function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    if (!draggingId) return;
+    const point = getSvgPoint(event);
+    const node = nodesRef.current.find((item) => item.id === draggingId);
+    if (node && point) {
+      dragClusterOffsetsRef.current.forEach(({ node: clusterNode, dx, dy }) => {
+        clusterNode.fx = point.x + dx;
+        clusterNode.fy = point.y + dy;
+        clusterNode.x = point.x + dx;
+        clusterNode.y = point.y + dy;
+        clusterNode.vx = 0;
+        clusterNode.vy = 0;
+      });
+      simulationRef.current?.alpha(0.34).restart();
+    }
+  }
+
+  function handlePointerUp(event: PointerEvent<SVGSVGElement>) {
+    if (!draggingId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    dragClusterOffsetsRef.current.forEach(({ node }) => {
+      node.fx = null;
+      node.fy = null;
+      node.vx = 0;
+      node.vy = 0;
+    });
+    dragClusterOffsetsRef.current = [];
+    setDraggingId(null);
+    simulationRef.current?.alpha(0.24).alphaTarget(0.015).restart();
+    playSound('drop');
+  }
+
+  function verifyClusters() {
+    clearValidationState('');
+    const sourceNodes = nodesRef.current.length ? nodesRef.current : nodes;
+    const liveNodes = cloneClusterSnapshot(sourceNodes);
+    const liveComponents = getClusterComponents(liveNodes, CLUSTER_VERIFY_RADIUS);
+    if (hasCorrectClusterLayout(liveNodes)) {
+      targetsRef.current = computeSuccessTargets();
+      setStatus('success');
+      setMistakeIds(new Set());
+      setHint('Awesome! You successfully clustered the data!');
+      simulationRef.current?.alpha(0.72).alphaTarget(0.08).restart();
+      window.setTimeout(() => simulationRef.current?.alphaTarget(0.006), 450);
+      playSound('success');
+      return;
+    }
+
+    const mistakes = getComponentMistakes(liveComponents);
+    targetsRef.current = null;
+    setStatus('failure');
+    setMistakeIds(mistakes.size ? mistakes : new Set([liveNodes[0]?.id].filter(Boolean) as string[]));
+    setHint(mistakes.size ? "Oops! Look closely. Something in this cluster doesn't belong here!" : 'Almost. Make exactly three close groups: animals, fruits, and vehicles.');
+    simulationRef.current?.alpha(0.42).restart();
+    playSound('error');
+  }
+
+  function resetField() {
+    targetsRef.current = null;
+    const fresh = makeScatteredClusterNodes();
+    const simulation = simulationRef.current;
+    const liveNodes = simulation?.nodes() ?? nodesRef.current;
+    liveNodes.forEach((node) => {
+      const resetNode = fresh.find((item) => item.id === node.id);
+      node.fx = null;
+      node.fy = null;
+      node.x = resetNode?.x ?? node.x;
+      node.y = resetNode?.y ?? node.y;
+      node.vx = 0;
+      node.vy = 0;
+    });
+    nodesRef.current = liveNodes;
+    dragClusterOffsetsRef.current = [];
+    simulation?.nodes(liveNodes).alpha(0.82).alphaTarget(0.015).restart();
+    window.setTimeout(() => simulationRef.current?.alphaTarget(0.004), 350);
+    setNodes(liveNodes.map((node) => ({ ...node })));
+    setDraggingId(null);
+    clearValidationState();
+  }
+
+  return (
+    <div className="clusterShell">
+      <div className="clusterMissionText">
+        <div className="kicker">Mission: Clustering!</div>
+        <h2>The AI needs your help to find patterns.</h2>
+        <p>Drag similar items together into groups to form Clusters.</p>
+      </div>
+      <div className="clusterBoardWrap">
+        <ClusterSandboxSvg
+          svgRef={svgRef}
+          nodes={nodes}
+          links={linkedPairs}
+          components={visibleComponents}
+          status={status}
+          mistakeIds={mistakeIds}
+          draggingId={draggingId}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+        />
+        <div className="clusterControlBar">
+          <button style={primaryBtn} onClick={verifyClusters}>Verify Clusters!</button>
+          <button style={ghostBtn} onClick={resetField}>Reset</button>
+          <span className={`clusterMessage ${status}`}>{hint}</span>
+          {status === 'success' && <button style={primaryBtn} onClick={onComplete}>Power Next District</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClusterSandboxSvg({
+  svgRef,
+  nodes,
+  links,
+  components,
+  status,
+  mistakeIds,
+  draggingId,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  svgRef: MutableRefObject<SVGSVGElement | null>;
+  nodes: ClusterNode[];
+  links: { a: ClusterNode; b: ClusterNode }[];
+  components: ClusterComponent[];
+  status: ClusterStatus;
+  mistakeIds: Set<string>;
+  draggingId: string | null;
+  onPointerDown: (id: string, event: PointerEvent<SVGGElement>) => void;
+  onPointerMove: (event: PointerEvent<SVGSVGElement>) => void;
+  onPointerUp: (event: PointerEvent<SVGSVGElement>) => void;
+}) {
+  return (
+    <svg
+      ref={svgRef}
+      className="clusterBoard"
+      viewBox={`0 0 ${CLUSTER_FIELD_WIDTH} ${CLUSTER_FIELD_HEIGHT}`}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      role="application"
+      aria-label="Magnetic clustering sandbox"
+    >
+      <defs>
+        <pattern id="neoClusterGrid" width="38" height="38" patternUnits="userSpaceOnUse">
+          <path d="M 38 0 L 0 0 0 38" fill="none" stroke="#d7ecff" strokeWidth="1" opacity=".05" />
+        </pattern>
+        <filter id="clusterGlow" x="-35%" y="-35%" width="170%" height="170%">
+          <feGaussianBlur stdDeviation="8" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <rect width={CLUSTER_FIELD_WIDTH} height={CLUSTER_FIELD_HEIGHT} fill="url(#neoClusterGrid)" />
+      {status === 'success' && components.filter((component) => component.pure).map((component) => {
+        const points = component.nodes.map((node) => ({ x: node.x ?? 0, y: node.y ?? 0 }));
+        const minX = Math.min(...points.map((point) => point.x)) - 54;
+        const maxX = Math.max(...points.map((point) => point.x)) + 54;
+        const minY = Math.min(...points.map((point) => point.y)) - 50;
+        const maxY = Math.max(...points.map((point) => point.y)) + 50;
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const rx = Math.max(58, (maxX - minX) / 2);
+        const ry = Math.max(54, (maxY - minY) / 2);
+        return (
+          <g key={component.id} filter={component.pure ? 'url(#clusterGlow)' : undefined}>
+            <ellipse
+              cx={cx}
+              cy={cy}
+              rx={rx}
+              ry={ry}
+              fill={component.color}
+              fillOpacity=".16"
+              stroke={component.color}
+              strokeWidth="4"
+              className="clusterPulseBoundary"
+            />
+            <text x={cx} y={cy + ry + 24} textAnchor="middle" fill={component.color} fontSize="15" fontWeight="900">
+              {clusterLabels[component.group as ClusterGroup]}
+            </text>
+          </g>
+        );
+      })}
+      {links.map(({ a, b }) => (
+        <line
+          key={`${a.id}-${b.id}`}
+          x1={a.x}
+          y1={a.y}
+          x2={b.x}
+          y2={b.y}
+          stroke={successClusterColors[a.group]}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeOpacity=".72"
+        />
+      ))}
+      {nodes.map((node) => {
+        const isMistake = mistakeIds.has(node.id);
+        const x = node.x ?? 0;
+        const y = node.y ?? 0;
+        const tooltipX = clamp(x + 44, 12, CLUSTER_FIELD_WIDTH - 310);
+        const tooltipY = clamp(y - 55, 14, CLUSTER_FIELD_HEIGHT - 48);
+        return (
+          <g
+            key={node.id}
+            className={`clusterNode ${draggingId === node.id ? 'dragging' : ''} ${isMistake ? 'clusterMistake' : ''}`}
+            transform={`translate(${x} ${y})`}
+            onPointerDown={(event) => onPointerDown(node.id, event)}
+            aria-label={`${node.label}, ${clusterLabels[node.group]}`}
+            style={{ cursor: draggingId === node.id ? 'grabbing' : 'grab' }}
+          >
+            <circle r="35" fill="rgba(10, 24, 44, .9)" stroke={isMistake ? '#ff4f68' : successClusterColors[node.group]} strokeWidth="3" />
+            <circle r="43" fill="none" stroke={isMistake ? '#ff4f68' : successClusterColors[node.group]} strokeOpacity=".18" strokeWidth="8" />
+            <text y="16" textAnchor="middle" fontSize="44">{node.icon}</text>
+            {isMistake && (
+              <g transform={`translate(${tooltipX - x} ${tooltipY - y})`}>
+                <rect width="298" height="38" rx="9" fill="rgba(24, 8, 18, .96)" stroke="#ff4f68" />
+                <text x="149" y="24" textAnchor="middle" fontSize="13" fontWeight="900" fill="#ffd7de">
+                  Oops! Look closely. Something doesn't belong here!
+                </text>
+              </g>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+function LegacyClusteringSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [gateOpen, setGateOpen] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [assigned, setAssigned] = useState<Record<string, string>>({});
@@ -1657,7 +2830,7 @@ function ClusteringSection({ onComplete }: { onComplete: CompleteHandler }) {
   return (
     <>
       <SectionHeader section="clustering" note="Group similar items. Connecting lines appear as clusters form." />
-      <div className="grid cols2">
+      <div className="grid cols2" style={{ display: 'none' }} aria-hidden="true">
         <div style={cardStyle}><ClusterSvg dots={dots} selected={selected} assigned={assigned} checked={checked} onSelect={setSelected} /></div>
         <div style={cardStyle}>
           <div className="grid">
@@ -1672,7 +2845,7 @@ function ClusteringSection({ onComplete }: { onComplete: CompleteHandler }) {
           <button style={primaryBtn} onClick={check}>Check Clusters</button>
         </div>
       </div>
-      {correct && checked && (
+      {false && correct && checked && (
         <div style={{ ...cardStyle, marginTop: 18 }}>
           <div className="banner">CLUSTERS FOUND ✅</div>
           <p className="small">Clustering is how Spotify groups listeners with similar taste, and how scientists group stars by type without pre-labelling them.</p>
@@ -1807,10 +2980,15 @@ function VaultSvg({ openRings, done }: { openRings: number; done: boolean }) {
 
 function AIWorkflowSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [gateOpen, setGateOpen] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [slots, setSlots] = useState<(string | null)[]>([null, null, null, null, null]);
-  const [checked, setChecked] = useState(false);
-  const [hint, setHint] = useState('');
+  const [selected, setSelected] = useState<WorkflowStep | null>(null);
+  const [dragging, setDragging] = useState<WorkflowStep | null>(null);
+  const [hoveredDock, setHoveredDock] = useState<number | null>(null);
+  const [slots, setSlots] = useState<(WorkflowStep | null)[]>([null, null, null, null, null]);
+  const [result, setResult] = useState<MachineResult>('idle');
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [jamIndex, setJamIndex] = useState<number | null>(null);
+  const learningHint = "Hint: An AI can't learn until it has information. What should come first?";
+  const [hint, setHint] = useState(learningHint);
 
   if (!gateOpen) {
     return <NovaGate lines={['The pipeline machine is out of order.', 'Place the steps in sequence so energy can flow.']} detail={sectionDetails.aiWorkflow} onDone={() => setGateOpen(true)} />;
@@ -1818,65 +2996,264 @@ function AIWorkflowSection({ onComplete }: { onComplete: CompleteHandler }) {
 
   const correct = slots.every((step, index) => step === workflowSteps[index]);
   const pool = [...workflowSteps].filter((step) => !slots.includes(step));
+  const machineLocked = result === 'running';
 
-  function place(slot: number) {
-    if (!selected) {
-      setHint('Select a step card first.');
+  function placeStep(slot: number, step: WorkflowStep | null) {
+    if (!step || machineLocked) {
+      if (!step) setHint(learningHint);
       return;
     }
     playSound('drop');
-    setSlots((prev) => prev.map((value, index) => (index === slot ? selected : value)));
+    setSlots((prev) => prev.map((value, index) => {
+      if (value === step) return null;
+      if (index === slot) return step;
+      return value;
+    }));
     setSelected(null);
-    setChecked(false);
-    setHint('');
+    setDragging(null);
+    setHoveredDock(null);
+    setResult('idle');
+    setActiveIndex(null);
+    setJamIndex(null);
+    setHint(learningHint);
+  }
+
+  function handleDrop(event: DragEvent<HTMLButtonElement>, slot: number) {
+    event.preventDefault();
+    const dropped = event.dataTransfer.getData('text/workflow-step') as WorkflowStep;
+    placeStep(slot, dropped || dragging);
+  }
+
+  function getJamMessage(index: number) {
+    const step = slots[index];
+    const expected = workflowSteps[index];
+    if (!step) return `Error! Dock ${index + 1} is empty, so the energy pulse has nowhere to go.`;
+    if (step === '🧹 Clean & Prepare Data' && !slots.slice(0, index).includes('📥 Collect Data')) {
+      return "Error! You can't clean data if you haven't collected it yet! Check your sequence.";
+    }
+    if (step === '🏋️ Train the Model' && !slots.slice(0, index).includes('🧹 Clean & Prepare Data')) {
+      return 'Error! Training needs prepared data first. Clean the data before the model learns from it.';
+    }
+    if (step === '🧪 Test & Evaluate' && !slots.slice(0, index).includes('🏋️ Train the Model')) {
+      return "Error! You can't test a model before it has been trained.";
+    }
+    if (index === 0 && step !== '🎯 Define the Problem') {
+      return 'Error! The machine needs a goal first. Define the problem before any data work begins.';
+    }
+    return `Error! Dock ${index + 1} expected ${workflowCartridgeMeta[expected].title}, but found ${workflowCartridgeMeta[step].title}. Check your sequence.`;
   }
 
   function activate() {
-    setChecked(true);
-    const wrong = slots.filter((step, index) => step !== workflowSteps[index]).length;
-    if (wrong === 0) {
-      playSound('power');
-      setHint('');
-    } else {
-      playSound('error');
-      setHint(`${wrong} steps are wrong. Think about which comes first: you can't train without data.`);
+    if (machineLocked) return;
+    const wrongIndex = slots.findIndex((step, index) => step !== workflowSteps[index]);
+    setResult('running');
+    setJamIndex(null);
+    setActiveIndex(null);
+    setHint('Checking the order...');
+    playSound('power');
+
+    const stopAt = wrongIndex === -1 ? workflowSteps.length - 1 : wrongIndex;
+    for (let index = 0; index <= stopAt; index += 1) {
+      window.setTimeout(() => {
+        setActiveIndex(index);
+        playSound(index === wrongIndex ? 'error' : 'power');
+      }, 260 + index * 560);
     }
+
+    window.setTimeout(() => {
+      if (wrongIndex === -1) {
+        setResult('success');
+        setActiveIndex(null);
+        setHint('Correct! An AI starts with a problem, learns from data, and then gets tested.');
+        playSound('success');
+      } else {
+        setResult('failure');
+        setJamIndex(wrongIndex);
+        setHint(getJamMessage(wrongIndex));
+      }
+    }, 260 + stopAt * 560 + 420);
   }
 
   return (
     <>
-      <SectionHeader section="aiWorkflow" note="Assemble the AI workflow in the correct order." />
-      <div className="grid cols2">
-        <div style={cardStyle}>
-          <div className="grid">
+      <SectionHeader section="aiWorkflow" note="How does an AI learn? Assemble the steps in the exact order an AI uses to solve a problem." />
+      <div className="pipelineShell">
+        <div className="pipelineBlueprint" aria-label="Pipeline docks">
+          <div className={`machineRail ${result === 'success' ? 'online' : ''}`}>
+            <AnimatePresence>
+              {activeIndex !== null && (
+                <motion.div
+                  className="energyPulse"
+                  initial={{ top: '7%', opacity: 0, scaleY: 0.35, x: '-50%', y: '-50%' }}
+                  animate={{ top: `${8 + activeIndex * 21}%`, opacity: 1, scaleY: [0.8, 1.15, 1], x: '-50%', y: '-50%' }}
+                  exit={{ opacity: 0, scaleY: 0.35 }}
+                  transition={{ duration: 0.38, ease: 'easeOut' }}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="pipelineDocks">
             {slots.map((slot, index) => {
-              const ok = slot === workflowSteps[index];
-              const wrong = checked && slot && !ok;
+              const isCheckpoint = activeIndex === index;
+              const isJammed = jamIndex === index && result === 'failure';
+              const isOnline = result === 'success' && correct;
               return (
-                <button key={index} style={{ ...ghostBtn, display: 'grid', gridTemplateColumns: '42px 1fr', alignItems: 'center', textAlign: 'left', borderColor: ok ? 'rgba(94,252,130,.65)' : wrong ? 'rgba(255,100,100,.65)' : 'rgba(255,255,255,.1)' }} className={wrong ? 'shake' : ''} onClick={() => place(index)}>
-                  <b>{index + 1}</b><span>{slot || 'Empty stage'}</span>
-                </button>
+                <motion.button
+                  key={index}
+                  type="button"
+                  className={`pipelineDock ${hoveredDock === index ? 'ready' : ''} ${isCheckpoint ? 'checkpoint' : ''} ${isJammed ? 'jammed' : ''} ${isOnline ? 'online' : ''}`}
+                  onDragOver={(event) => { event.preventDefault(); setHoveredDock(index); }}
+                  onDragLeave={() => setHoveredDock(null)}
+                  onDrop={(event) => handleDrop(event, index)}
+                  onClick={() => placeStep(index, selected)}
+                  animate={isJammed ? { x: [0, -12, 11, -8, 7, 0] } : { x: 0 }}
+                  transition={{ duration: 0.42 }}
+                >
+                  <span className="dockNumber">{index + 1}</span>
+                  <AnimatePresence mode="wait">
+                    {slot ? (
+                      <WorkflowCartridge key={slot} step={slot} docked lit={isCheckpoint || isOnline} />
+                    ) : (
+                      <motion.span key="empty" className="dockEmpty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                        Empty Socket
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                  {isJammed && <SparkField />}
+                </motion.button>
               );
             })}
+            <AnimatePresence>
+              {jamIndex !== null && result === 'failure' && (
+                <motion.div
+                  className="jamTooltip"
+                  style={{ top: `${Math.max(2, 5 + jamIndex * 20)}%` }}
+                  initial={{ opacity: 0, x: 18, scale: 0.96 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 18 }}
+                >
+                  {hint}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          <button style={{ ...primaryBtn, marginTop: 16 }} onClick={activate}>Activate Machine</button>
-          <p className="hint">{hint}</p>
         </div>
-        <div style={cardStyle}>
-          <div className="grid">
-            {pool.map((step) => <button key={step} className={`tile ${selected === step ? 'selected' : ''}`} onClick={() => { setSelected(step); playSound('click'); }}>{step}</button>)}
+
+        <aside className="cartridgeBay" aria-label="AI learning steps">
+          <div>
+            <div className="kicker">Available Steps</div>
+            <h3>AI Learning Steps</h3>
           </div>
-        </div>
+          <motion.div className="cartridgeRack" layout>
+            <AnimatePresence>
+              {pool.map((step) => (
+                <WorkflowCartridge
+                  key={step}
+                  step={step}
+                  selected={selected === step}
+                  dragging={dragging === step}
+                  onClick={() => {
+                    if (machineLocked) return;
+                    setSelected(step);
+                    playSound('click');
+                  }}
+                  onNativeDragStart={(event) => {
+                    if (machineLocked) return;
+                    setDragging(step);
+                    event.dataTransfer.setData('text/workflow-step', step);
+                    event.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragEnd={() => {
+                    setDragging(null);
+                    setHoveredDock(null);
+                  }}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+          <div className="machineControls">
+            <button className="machineButton" disabled={machineLocked || slots.some((slot) => !slot)} onClick={activate}>
+              {machineLocked ? 'Checking...' : 'Activate Machine'}
+            </button>
+            <div className="machineStatus" role="status">{hint}</div>
+            <AnimatePresence>
+              {result === 'success' && (
+                <motion.div className="successPanel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <span>Correct! The AI workflow is in the right order.</span>
+                  <button className="machineButton" onClick={onComplete}>Power Final District</button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </aside>
       </div>
-      {correct && checked && (
-        <div style={{ ...cardStyle, marginTop: 18 }}>
-          <div className="banner">MACHINE ONLINE ⚙️</div>
-          <PipelineFlow />
-          <p className="small">Every AI system ever built, from Alexa to self-driving cars, follows this exact pipeline.</p>
-          <button style={primaryBtn} onClick={onComplete}>Power Final District</button>
-        </div>
-      )}
     </>
+  );
+}
+
+function WorkflowCartridge({
+  step,
+  selected = false,
+  dragging = false,
+  docked = false,
+  lit = false,
+  onClick,
+  onNativeDragStart,
+  onDragEnd,
+}: {
+  step: WorkflowStep;
+  selected?: boolean;
+  dragging?: boolean;
+  docked?: boolean;
+  lit?: boolean;
+  onClick?: () => void;
+  onNativeDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
+  onDragEnd?: () => void;
+}) {
+  const meta = workflowCartridgeMeta[step];
+  return (
+    <motion.button
+      type="button"
+      layout
+      draggable={!docked}
+      className={`cartridge ${selected ? 'selected' : ''} ${dragging ? 'dragging' : ''} ${lit ? 'lit' : ''}`}
+      onClick={onClick}
+      onDragStartCapture={onNativeDragStart}
+      onDragEnd={onDragEnd}
+      initial={{ opacity: 0, scale: 0.92, y: docked ? 0 : 12 }}
+      animate={{
+        opacity: 1,
+        scale: lit ? [1, 1.055, 1] : 1,
+        y: 0,
+        borderColor: lit ? 'rgba(117,214,255,.95)' : undefined,
+        backgroundColor: lit ? '#1f78c8' : undefined,
+      }}
+      exit={{ opacity: 0, scale: 0.9, y: 8 }}
+      transition={{ type: 'spring', stiffness: 520, damping: 34 }}
+    >
+      <span className="cartridgeIcon">{meta.icon}</span>
+      <span className="cartridgeText">
+        <strong>{meta.title}</strong>
+      </span>
+    </motion.button>
+  );
+}
+
+function SparkField() {
+  return (
+    <span className="sparkField" aria-hidden="true">
+      {Array.from({ length: 8 }, (_, index) => (
+        <i
+          key={index}
+          style={{
+            '--spark-rotate': `${index * 45}deg`,
+            '--spark-distance': `${26 + (index % 3) * 12}px`,
+            animationDelay: `${index * 0.025}s`,
+          } as CSSProperties}
+        />
+      ))}
+    </span>
   );
 }
 
@@ -2155,3 +3532,4 @@ function App() {
 }
 
 export default App;
+
