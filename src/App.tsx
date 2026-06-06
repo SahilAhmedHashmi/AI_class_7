@@ -64,6 +64,28 @@ const sectionTitles: Record<SectionKey, string> = {
 const regressionBriefing =
   "Captain Nova here! To teach our AI how to predict test scores, it needs examples. Your Mission: Plot data points on the board to show how many hours a student studied, and what score they got. The Rule: Give the AI at least 5 different examples. Once it has enough data, it will try to find the hidden pattern! Ready?";
 
+const activityBriefings: Partial<Record<MissionKey, string>> = {
+  whatIsAI:
+    'Captain Nova here! To wake up NeoCity\'s recommendation engines, the AI needs to know what counts as intelligence. Your Mission: Select each tool card, then decide whether it learns from data or follows fixed rules. The Rule: Label every card correctly. Once all tools are sorted, the city classifier will understand the difference between AI and ordinary programs! Ready?',
+  classification:
+    'Captain Nova here! The factory conveyor is moving, but the AI cannot sort objects yet. Your Mission: Look at each item and choose the correct bin: Fruit, Animal, or Vehicle. The Rule: Use the object\'s features before you decide. Once every example is sorted, the model will test what it learned on new items! Ready?',
+  trainingData:
+    'Captain Nova here! Our image model is empty, so it needs labelled examples before it can recognize animals. Your Mission: Watch the camera frame and choose Dog, Cat, or Bird for each image. The Rule: Add the correct label every time so the confidence meter can grow. Once the model has enough examples, training will be complete! Ready?',
+  computerVision:
+    'Captain Nova here! The vision grid is scanning NeoCity, but it must learn which objects are alive. Your Mission: Click only the living things in the scene. The Rule: Animals and plants count as living; vehicles, lights, and buildings do not. Once all living targets are detected, the safety scanner comes back online! Ready?',
+  nlp:
+    'Captain Nova here! Language Harbor is receiving messages, but the AI cannot understand their feelings yet. Your Mission: Read each sentence and tag it as Positive, Neutral, or Negative. The Rule: Use the emotion in the words before you answer. Once the examples are labelled, you can try the live NLP simulator! Ready?',
+  regression: regressionBriefing,
+  clustering:
+    'Captain Nova here! The AI Smart Sorter has scattered mixed data across the board. Your Mission: Drag similar items close together so animals, fruits, and vehicles form natural clusters. The Rule: Each cluster should contain only matching items. Once the groups are correct, verify the clusters to restore the district! Ready?',
+  dataTypes:
+    'Captain Nova here! The Data Vault is locked behind four data signatures. Your Mission: Read each riddle and choose the matching data type: Structured, Unstructured, Time-Series, or Spatial. The Rule: Think about how the information is stored before you answer. Once all rings rotate into place, the vault opens! Ready?',
+  aiWorkflow:
+    'Captain Nova here! The pipeline machine is jammed because its AI steps are out of order. Your Mission: Place the workflow steps from problem definition through testing. The Rule: Data must be collected and cleaned before the model can train. Once the sequence is correct, run the machine to send energy forward! Ready?',
+  finalMission:
+    'Captain Nova here! Only the AI Core remains, and every system you repaired will be tested. Your Mission: Stabilize the core by solving challenges on data, prediction, sentiment, and clustering. The Rule: Choose the answer that matches the concept each challenge is testing. Once the core is restored, enter AETHERION\'s final showdown! Ready?',
+};
+
 const sectionDetails: Partial<Record<SectionKey, SectionDetail>> = {
   classification: {
     title: 'Why classification matters',
@@ -82,7 +104,7 @@ const sectionDetails: Partial<Record<SectionKey, SectionDetail>> = {
     text: 'Natural language processing (NLP) helps computers read and understand human language. It can tell whether a sentence is happy, sad, or neutral. In this activity, you will teach the AI to recognize sentiment in text and then try it yourself.',
   },
   regression: {
-    title: 'The Concept: Finding the Trend (Supervised Learning)',
+    title: 'Regression',
     sections: [
       {
         heading: 'The Real-World Pattern',
@@ -117,6 +139,219 @@ const sectionDetails: Partial<Record<SectionKey, SectionDetail>> = {
   finalMission: {
     title: 'The final mission',
     text: 'The final mission brings together everything you learned: classification, training data, vision, language, regression, clustering, and workflow. Solve each system challenge and get ready for the final boss battle.',
+  },
+};
+
+const standardizedConceptDetails: Partial<Record<SectionKey, SectionDetail>> = {
+  whatIsAI: {
+    title: 'What is AI?',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: "When you learn to ride a bike, you don't just blindly follow a manual; you try, fall, and figure out how to balance. Your brain learns from experience!",
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'Artificial Intelligence (AI) does something similar. Instead of just following fixed rules, AI machines are designed to perform tasks that usually require human intelligence.',
+      },
+      {
+        heading: 'The Core Mechanic',
+        body: 'An AI learns by looking at data—which can be numbers, words, images, or sounds. By studying this data, the system recognizes patterns and learns how to solve problems or make decisions on its own.',
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: 'Because AI can learn from experience, it can help us solve massive problems, from predicting the weather to discovering new medicines, much faster than a human brain ever could!',
+      },
+    ],
+  },
+  classification: {
+    title: 'Classification',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: 'When you do laundry, you naturally separate shirts from socks. You look at the shape, the fabric, and the size, and put them in the right piles.',
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'An AI does this using a process called Classification. Instead of looking with eyes, it looks at the "features" (data points) of an object to decide which category, or "class," it belongs to.',
+      },
+      {
+        heading: 'The Core Mechanic',
+        body: 'We train the AI by showing it thousands of examples. "This is an apple. This is a car." The AI figures out the mathematical rules that make an apple different from a car.',
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: "Classification is everywhere! It’s how your email knows to send scams to the Spam folder, how your phone's camera recognizes your face, and how doctors use AI to spot diseases in X-rays.",
+      },
+    ],
+  },
+  trainingData: {
+    title: 'Model Training',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: 'Think about how you study for a math test. You learn from your notes, you do practice sums to check your understanding, and finally, you take the real exam.',
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'AI models learn exactly the same way! Scientists divide their information into three parts: the Training dataset, the Validation dataset, and the Test dataset.',
+      },
+      {
+        heading: 'The Core Mechanic',
+        body: 'First, the AI looks at the "Training data" to learn patterns and trends. Next, it uses "Validation data" to practice and improve while it is still training. Finally, it takes a final exam using "Test data" it has never seen before to prove it actually learned the concept.',
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: "This strict training process ensures the AI doesn't just memorize the answers. It guarantees the AI is actually smart enough to handle brand-new situations in the real world!",
+      },
+    ],
+  },
+  computerVision: {
+    title: 'Computer Vision',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: "When you look out a window, your eyes instantly recognize trees, cars, and people. You don't even have to think about it!",
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'We give machines their own "eyes" using a technology called Computer Vision. This lets machines see, understand, and make sense of visual information just like humans do.',
+      },
+      {
+        heading: 'The Core Mechanic',
+        body: 'The AI takes in an image and breaks it down. It extracts "features" like shapes, colors, and textures. Then, it categorizes the object (like deciding if it\'s a cat or a dog) and tracks its exact location.',
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: "Computer Vision is what allows self-driving cars to spot pedestrians and stop safely! It also powers your phone's face-unlock and helps doctors scan ultrasound images to keep people healthy.",
+      },
+    ],
+  },
+  nlp: {
+    title: 'Natural Language Processing',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: 'If your friend texts you, "I missed the bus again, this is the worst," you instantly know they are upset. You understand the feeling behind the words.',
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'Computers only understand numbers, so reading human emotion is hard for them. We teach them using Natural Language Processing (NLP) and Sentiment Analysis.',
+      },
+      {
+        heading: 'The Core Mechanic',
+        body: 'The AI scans a sentence and gives a mathematical score to the words. Words like "love," "great," and "best" pull the score positive. Words like "terrible" or "broken" pull it negative.',
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: 'Imagine a company gets 10,000 product reviews in one day. No human can read all of them! An NLP AI can read and sort all 10,000 reviews in seconds, telling the company exactly how their customers are feeling.',
+      },
+    ],
+  },
+  regression: {
+    title: 'Regression',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: "Imagine you notice that studying for 1 hour usually gets you a 50% on a test, and 2 hours gets you a 60%. What score do you think 3 hours of studying will get you? You'd probably guess 70%, right? Your brain just naturally found a pattern!",
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'An AI does the exact same thing, but it uses math. In AI, this is called Supervised Learning. We act as the supervisor by giving the AI a bunch of real examples (like study hours vs. test scores).',
+      },
+      {
+        heading: 'The Core Mechanic',
+        body: 'Once the AI looks at all the examples scattered on a graph, it draws a straight line right through the middle of them. This is called a Trendline.',
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: 'Once the AI has drawn that perfectly angled line, it doesn\'t just know the past—it can predict the future! You can ask it, "What if someone studies for 10 hours?" and it will follow the line to give you an incredibly accurate guess!',
+      },
+    ],
+  },
+  clustering: {
+    title: 'Clustering',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: "Imagine walking into a messy room full of toys, books, and clothes. Even without anyone telling you what to do, you'd probably group the books on a shelf, put the clothes in a basket, and leave the toys in a corner. You grouped them by similarity!",
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'In AI, this is called Unsupervised Learning (specifically, Clustering). We don\'t give the AI any labels. We just give it a massive pile of data and say, "Organize this."',
+      },
+      {
+        heading: 'The Core Mechanic',
+        body: 'The AI measures the "distance" or similarity between items. Items that share similar traits are magnetically grouped into clusters, while different items are pushed apart.',
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: 'Clustering helps us discover patterns we didn\'t even know existed! It’s how streaming services like Netflix figure out what "genre" of movies you like without you telling them, grouping you with viewers who have similar taste.',
+      },
+    ],
+  },
+  dataTypes: {
+    title: 'Datasets',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: 'Imagine trying to build a massive Lego castle, but your Lego pieces are scattered all over the house, mixed with dirt and garbage. You have to gather and organize them first!',
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'AI models need their own building blocks to learn, and these blocks are called Datasets. A dataset is a large group of information used to teach and evaluate the AI.',
+      },
+      {
+        heading: 'The Core Mechanic',
+        body: 'Datasets can be numbers, texts, or even multimedia like images and videos. The best datasets are "Structured," meaning they are perfectly organized into rows and columns so the AI can easily search and evaluate the data.',
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: 'Without a clean, organized Data Vault, an AI is useless! High-quality datasets give AI the power to understand everything from complex speech and picture recognition to predicting future trends.',
+      },
+    ],
+  },
+  aiWorkflow: {
+    title: 'The AI Pipeline',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: "You can't bake a cake by throwing flour into an unheated oven and then trying to add eggs later. You have to follow a strict recipe in the exact right sequence: gather ingredients, mix, bake, and then taste.",
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'Building an AI requires a strict recipe too, known as the Machine Learning Pipeline. If you skip a step, the machine breaks.',
+      },
+      {
+        heading: 'The Core Mechanic',
+        body: "First, you must Define the Problem. Then, you Collect Data (the ingredients). You Clean the Data so there's no junk. Only then can you Train the Model (bake the cake). Finally, you Test & Evaluate to make sure it works!",
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: 'A strong pipeline means scientists can build, fix, and upgrade AI systems safely. If an AI makes a mistake, the engineers can look at the pipeline to see exactly which step went wrong and fix it!',
+      },
+    ],
+  },
+  finalMission: {
+    title: 'Feedback Loops',
+    sections: [
+      {
+        heading: 'The Real-World Pattern',
+        body: 'If you play a video game and keep losing at the same boss, you eventually change your strategy. You use your mistakes to get better the next time.',
+      },
+      {
+        heading: 'How the AI Does It',
+        body: 'Even a fully trained AI makes mistakes. To fix or "restore" its intelligence, scientists use a process called Constant Improvement or Feedback Loops.',
+      },
+      {
+        heading: 'The Core Mechanic',
+        body: 'When an AI gets something wrong, data scientists repetitively analyze the mistake and tweak the models. They feed the AI fresh, updated data so it learns from that exact error and improves its accuracy.',
+      },
+      {
+        heading: 'Why is this a superpower?',
+        body: "An AI isn't frozen in time. Through feedback loops, it gets smarter and more accurate every single day, constantly upgrading its own core to solve harder and harder problems!",
+      },
+    ],
   },
 };
 
@@ -263,26 +498,28 @@ const novaDetailBackdropStyle: CSSProperties = {
   placeItems: 'center',
   padding: 20,
   background: 'rgba(2, 8, 22, 0.78)',
-  backdropFilter: 'blur(12px)',
+  backdropFilter: 'blur(6px)',
   animation: 'modalFade .22s ease both',
 };
 
 const novaDetailModalStyle: CSSProperties = {
   position: 'relative',
   display: 'grid',
-  gap: 20,
-  width: 'min(760px, 100%)',
-  maxHeight: 'min(82vh, 760px)',
+  gap: 22,
+  width: 'min(900px, calc(100vw - 32px))',
+  maxHeight: 'min(84vh, 780px)',
   overflowY: 'auto',
-  borderRadius: 22,
-  border: '1px solid rgba(139, 220, 184, 0.34)',
-  background: 'linear-gradient(145deg, rgba(11, 24, 48, 0.82), rgba(5, 13, 31, 0.92))',
-  boxShadow: '0 32px 100px rgba(0,0,0,.64), 0 0 46px rgba(75,155,255,.16)',
+  borderRadius: 8,
+  border: '1px solid rgba(117, 211, 166, 0.32)',
+  background: '#081527',
+  boxShadow: '0 24px 60px rgba(0,0,0,.44)',
   color: '#eef7ff',
-  padding: '34px clamp(22px, 4vw, 42px)',
+  padding: '34px clamp(22px, 4vw, 46px)',
   textAlign: 'left',
   fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   animation: 'modalRise .28s cubic-bezier(.16,1,.3,1) both',
+  scrollbarWidth: 'thin',
+  scrollbarColor: '#4bffa5 #07111f',
 };
 
 const novaDetailCloseStyle: CSSProperties = {
@@ -291,11 +528,23 @@ const novaDetailCloseStyle: CSSProperties = {
   right: 14,
   width: 38,
   height: 38,
-  borderRadius: 12,
-  border: '1px solid rgba(255,255,255,.14)',
-  background: 'rgba(255,255,255,.08)',
+  borderRadius: 6,
+  border: '1px solid rgba(255,255,255,.18)',
+  background: '#102238',
   color: '#f7fbff',
   fontWeight: 900,
+  cursor: 'pointer',
+};
+
+const novaDetailActionStyle: CSSProperties = {
+  justifySelf: 'start',
+  marginTop: 8,
+  border: '1px solid rgba(75, 255, 165, 0.42)',
+  background: '#18314a',
+  color: '#f7fbff',
+  borderRadius: 6,
+  padding: '12px 18px',
+  fontWeight: 800,
   cursor: 'pointer',
 };
 
@@ -305,20 +554,22 @@ const novaDetailTitleStyle: CSSProperties = {
   color: '#4bffa5',
   fontSize: 'clamp(1.45rem, 3vw, 2.15rem)',
   lineHeight: 1.15,
+  letterSpacing: 0,
 };
 
 const novaDetailHeadingStyle: CSSProperties = {
   margin: '0 0 8px',
-  color: '#9fd9ff',
-  fontSize: '1rem',
+  color: '#9fd8ff',
+  fontSize: '1.02rem',
   fontWeight: 900,
+  letterSpacing: 0,
 };
 
 const novaDetailBodyStyle: CSSProperties = {
   margin: 0,
-  color: '#d8eeff',
-  fontSize: '1rem',
-  lineHeight: 1.72,
+  color: '#dce8f5',
+  fontSize: '1.02rem',
+  lineHeight: 1.68,
 };
 
 function clamp(n: number, min = 0, max = 100) {
@@ -819,6 +1070,21 @@ function GlobalStyles() {
       .factory-test-footer button:disabled {
         opacity:.48;
         cursor:not-allowed;
+      }
+      .concept-detail-modal::-webkit-scrollbar {
+        width:10px;
+      }
+      .concept-detail-modal::-webkit-scrollbar-track {
+        background:#07111f;
+        border-radius:999px;
+      }
+      .concept-detail-modal::-webkit-scrollbar-thumb {
+        background:#4bffa5;
+        border:2px solid #07111f;
+        border-radius:999px;
+      }
+      .concept-detail-modal::-webkit-scrollbar-thumb:hover {
+        background:#7dffc0;
       }
       .training-complete-backdrop {
         position:fixed;
@@ -1371,7 +1637,7 @@ function NovaGate({
           style={novaDetailBackdropStyle}
           onClick={() => setShowDetail(false)}
         >
-          <div style={novaDetailModalStyle} onClick={(event) => event.stopPropagation()}>
+          <div className="concept-detail-modal" style={novaDetailModalStyle} onClick={(event) => event.stopPropagation()}>
             <button
               type="button"
               aria-label="Close concept details"
@@ -1393,7 +1659,7 @@ function NovaGate({
             ) : (
               <p style={novaDetailBodyStyle}>{detail.text}</p>
             )}
-            <button type="button" style={{ ...primaryBtn, justifySelf: 'start', marginTop: 8 }} onClick={() => setShowDetail(false)}>
+            <button type="button" style={novaDetailActionStyle} onClick={() => setShowDetail(false)}>
               Got it!
             </button>
           </div>
@@ -1533,7 +1799,7 @@ function WhatIsAISection({ onComplete, onNameCaptured }: { onComplete: CompleteH
   }
 
   if (!gateOpen) {
-    return <NovaGate lines={[`Alright, ${playerName}.`, "NeoCity's recommendation engines are confused.", 'Label tools as AI or fixed rules so the city classifier can learn.']} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[`Alright, ${playerName}.`, activityBriefings.whatIsAI || '']} detail={standardizedConceptDetails.whatIsAI} onDone={() => setGateOpen(true)} />;
   }
 
   const remaining = aiItems.filter((item) => !labelled[item.id]);
@@ -1656,7 +1922,7 @@ function ClassificationSection({ onComplete }: { onComplete: CompleteHandler }) 
   }, [testingItem]);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The factory conveyor is moving again.', 'Classify each object by its features and the bins will teach the model.']} detail={sectionDetails.classification} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[activityBriefings.classification || '']} detail={standardizedConceptDetails.classification} onDone={() => setGateOpen(true)} />;
   }
 
   function choose(bin: FactoryBin) {
@@ -1855,7 +2121,7 @@ function TrainingDataSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [learning, setLearning] = useState(false);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The image model is empty.', 'Become the trainer: label examples and watch confidence grow.']} detail={sectionDetails.trainingData} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[activityBriefings.trainingData || '']} detail={standardizedConceptDetails.trainingData} onDone={() => setGateOpen(true)} />;
   }
 
   const done = round >= trainingRounds.length;
@@ -1940,7 +2206,7 @@ function ComputerVisionSection({ onComplete }: { onComplete: CompleteHandler }) 
   const [completeFlash, setCompleteFlash] = useState(false);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The vision grid is scanning the city.', 'Detect living things only so NeoCity can protect parks and pedestrians.']} detail={sectionDetails.computerVision} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[activityBriefings.computerVision || '']} detail={standardizedConceptDetails.computerVision} onDone={() => setGateOpen(true)} />;
   }
 
   const objects = [
@@ -2083,7 +2349,7 @@ function NLPSection({ onComplete }: { onComplete: CompleteHandler }) {
   }, [current, done, gateOpen]);
 
   if (!gateOpen) {
-    return <NovaGate lines={['Language Harbor is full of scrambled messages.', 'Tag the feeling in each sentence and train the NLP beacon.']} detail={sectionDetails.nlp} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[activityBriefings.nlp || '']} detail={standardizedConceptDetails.nlp} onDone={() => setGateOpen(true)} />;
   }
 
   function choose(sentiment: Sentiment) {
@@ -2158,8 +2424,8 @@ function RegressionSection({ onComplete }: { onComplete: CompleteHandler }) {
   if (!gateOpen) {
     return (
       <NovaGate
-        lines={[regressionBriefing]}
-        detail={sectionDetails.regression}
+        lines={[activityBriefings.regression || regressionBriefing]}
+        detail={standardizedConceptDetails.regression}
         onDone={() => setGateOpen(true)}
       />
     );
@@ -2499,7 +2765,7 @@ function ClusteringSection({ onComplete }: { onComplete: CompleteHandler }) {
   const linkedPairs = useMemo(() => getLinkedPairs(nodes), [nodes]);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The AI Smart Sorter found a messy room.', 'Drag similar items together so natural clusters appear.']} detail={sectionDetails.clustering} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[activityBriefings.clustering || '']} detail={standardizedConceptDetails.clustering} onDone={() => setGateOpen(true)} />;
   }
 
   function getSvgPoint(event: PointerEvent<Element>) {
@@ -2785,7 +3051,7 @@ function LegacyClusteringSection({ onComplete }: { onComplete: CompleteHandler }
   const [checked, setChecked] = useState(false);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The forest map lost its natural groups.', 'Assign dots to camps by category, then check the clusters.']} detail={sectionDetails.clustering} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[activityBriefings.clustering || '']} detail={standardizedConceptDetails.clustering} onDone={() => setGateOpen(true)} />;
   }
 
   const dots = [
@@ -2904,7 +3170,7 @@ function DataTypesSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [shake, setShake] = useState(false);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The Data Vault accepts four data signatures.', 'Solve each riddle to rotate a vault ring.']} detail={sectionDetails.dataTypes} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[activityBriefings.dataTypes || '']} detail={standardizedConceptDetails.dataTypes} onDone={() => setGateOpen(true)} />;
   }
 
   const riddles = [
@@ -2991,7 +3257,7 @@ function AIWorkflowSection({ onComplete }: { onComplete: CompleteHandler }) {
   const [hint, setHint] = useState(learningHint);
 
   if (!gateOpen) {
-    return <NovaGate lines={['The pipeline machine is out of order.', 'Place the steps in sequence so energy can flow.']} detail={sectionDetails.aiWorkflow} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[activityBriefings.aiWorkflow || '']} detail={standardizedConceptDetails.aiWorkflow} onDone={() => setGateOpen(true)} />;
   }
 
   const correct = slots.every((step, index) => step === workflowSteps[index]);
@@ -3314,7 +3580,7 @@ function FinalMissionSection({ onComplete, addBossXp }: { onComplete: CompleteHa
   }, [step, bossStarted]);
 
   if (!gateOpen) {
-    return <NovaGate lines={['Only the AI Core remains.', 'Stabilize the systems, then enter AETHERION’s final showdown.']} detail={sectionDetails.finalMission} onDone={() => setGateOpen(true)} />;
+    return <NovaGate lines={[activityBriefings.finalMission || '']} detail={standardizedConceptDetails.finalMission} onDone={() => setGateOpen(true)} />;
   }
 
   if (bossStarted) {
